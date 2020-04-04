@@ -39,6 +39,7 @@ let allow_approximation = ref false
 let map_files = ref []
 let module_map = ref String.Map.empty
 let debug = ref false
+let print_json =ref false
 
 module Error_occurred : sig
   val set : unit -> unit
@@ -225,6 +226,31 @@ let print_dependencies target_files deps =
   List.iter print_dep deps;
   print_string "\n"
 
+  let print_json_dependencies source_file deps =
+    
+    print_string "{\"source\": \"";
+    print_filename source_file;
+    print_string "\", \"depends_on\""; 
+    print_string depends_on;
+    print_char '[';
+    let n=(String.Set.cardinal deps)-1 in 
+    let depends = ref [""] in 
+    String.Set.iter
+      (fun dep ->
+         (* filter out "*predef*" *)
+        if (String.length dep > 0)
+            && (match dep.[0] with
+                | 'A'..'Z' | '\128'..'\255' -> true
+                | _ -> false) then
+          begin
+            add_to_list depends ("\""^dep^"\"");
+          end)
+      deps;
+    (* List.iter (Printf.printf "%s") !depends; *)
+    List.iteri (fun i x -> if i >= n then print_string x else print_string (x ^ ",") ) !depends;
+    print_char ']';
+    print_char '}'
+
 let print_raw_dependencies source_file deps =
   print_filename source_file; print_string depends_on;
   String.Set.iter
@@ -374,8 +400,13 @@ let print_mli_dependencies source_file extracted_deps pp_deps =
   print_dependencies [basename ^ ".cmi"] (byt_deps @ pp_deps)
 
 let print_file_dependencies (source_file, kind, extracted_deps, pp_deps) =
-  if !raw_dependencies then begin
-    print_raw_dependencies source_file extracted_deps
+  if !raw_dependencies || !print_json then begin
+    if !print_json
+    then begin 
+      print_json_dependencies source_file extracted_deps
+      (* print_char ',' *)
+    end
+    else print_raw_dependencies source_file extracted_deps
   end else
     match kind with
     | ML -> print_ml_dependencies source_file extracted_deps pp_deps
@@ -608,6 +639,8 @@ let main () =
         "<e>  Consider <e> as a synonym of the .mli extension";
      "-modules", Arg.Set raw_dependencies,
         " Print module dependencies in raw form (not suitable for make)";
+     "-modulesjson", Arg.Set print_json,
+        " Print module dependencies in JSON form (suitable for make ?)";
      "-native", Arg.Set native_only,
         " Generate dependencies for native-code only (no .cmo files)";
      "-bytecode", Arg.Set bytecode_only,
@@ -645,7 +678,18 @@ let main () =
   in
   Clflags.parse_arguments file_dependencies usage;
   Compenv.readenv ppf Before_link;
-  if !sort_files then sort_files_by_dependencies !files
+  if !sort_files then (sort_files_by_dependencies !files)
+  else if(!print_json) then begin
+      print_char '[';
+      let n = (List.length !files) -1 in
+      List.iteri (fun i x -> 
+        if i >= n 
+        then print_file_dependencies x
+        else begin print_file_dependencies x; print_char ',';
+             end
+      ) (List.sort compare !files);
+      print_char ']';
+    end
   else List.iter print_file_dependencies (List.sort compare !files);
   exit (if Error_occurred.get () then 2 else 0)
 
