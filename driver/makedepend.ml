@@ -226,26 +226,26 @@ let print_dependencies target_files deps =
   List.iter print_dep deps;
   print_string "\n"
 
-let print_json_dependencies source_file deps =
+let is_predef l= 
+  (fun dep ->
+     match dep.[0] with
+     | 'A'..'Z' | '\128'..'\255' -> true
+     | _ -> false
+  ) l 
 
+let print_json_dependencies source_file deps =
   print_string "{\"source\": \"";
   print_filename source_file;
   print_string "\", \"depends_on\""; 
   print_string depends_on;
   print_char '[';
-  let set_list = String.Set.elements deps in 
-  let is_predef l= 
-    List.filter (fun dep ->
-        match dep.[0] with
-        | 'A'..'Z' | '\128'..'\255' -> true
-        | _ -> false
-      ) l in
+  let elements = String.Set.elements deps in 
   let rec print_all xs = match xs with
     | [] -> ()
     | [x] -> print_string x
     | x::xs -> print_string (x ^ ","); print_all xs
   in
-  print_all (is_predef set_list);
+  print_all (List.filter is_predef elements);
   print_char ']';
   print_char '}'
 
