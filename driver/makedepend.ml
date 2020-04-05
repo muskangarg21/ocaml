@@ -233,21 +233,17 @@ let print_dependencies target_files deps =
     print_string "\", \"depends_on\""; 
     print_string depends_on;
     print_char '[';
-    let n=(String.Set.cardinal deps)-1 in 
-    let depends = ref [""] in 
-    String.Set.iter
-      (fun dep ->
-         (* filter out "*predef*" *)
-        if (String.length dep > 0)
-            && (match dep.[0] with
-                | 'A'..'Z' | '\128'..'\255' -> true
-                | _ -> false) then
-          begin
-            add_to_list depends ("\""^dep^"\"");
-          end)
-      deps;
-    (* List.iter (Printf.printf "%s") !depends; *)
-    List.iteri (fun i x -> if i >= n then print_string x else print_string (x ^ ",") ) !depends;
+    let set_list = String.Set.elements deps in 
+    let is_valid x = (match x.[0] with
+    | 'A'..'Z' | '\128'..'\255' -> true
+    | _ -> false)
+    in 
+    let rec print_all xs = match xs with
+            | [] -> ()
+            | [x] -> if(is_valid x) then print_string x
+            | x::xs -> if (is_valid x) then print_string (x ^ ","); print_all xs
+            in
+    print_all (set_list);
     print_char ']';
     print_char '}'
 
@@ -640,7 +636,7 @@ let main () =
      "-modules", Arg.Set raw_dependencies,
         " Print module dependencies in raw form (not suitable for make)";
      "-modulesjson", Arg.Set print_json,
-        " Print module dependencies in JSON form (suitable for make ?)";
+        " Print module dependencies in JSON form (not suitable for make)";
      "-native", Arg.Set native_only,
         " Generate dependencies for native-code only (no .cmo files)";
      "-bytecode", Arg.Set bytecode_only,
