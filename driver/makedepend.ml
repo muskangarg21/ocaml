@@ -251,18 +251,11 @@ let print_json_dependencies source_file deps =
 
 let print_raw_dependencies source_file deps =
   print_filename source_file; print_string depends_on;
-  String.Set.iter
-    (fun dep ->
-       (* filter out "*predef*" *)
-      if (String.length dep > 0)
-          && (match dep.[0] with
-              | 'A'..'Z' | '\128'..'\255' -> true
-              | _ -> false) then
-        begin
-          print_char ' ';
-          print_string dep
-        end)
-    deps;
+  let elements = String.Set.elements deps in 
+  List.iter ( fun dep -> 
+      print_char ' ';
+      print_string dep 
+    ) (List.filter is_predef elements);
   print_char '\n'
 
 
