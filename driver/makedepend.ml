@@ -226,26 +226,28 @@ let print_dependencies target_files deps =
   List.iter print_dep deps;
   print_string "\n"
 
-  let print_json_dependencies source_file deps =
-    
-    print_string "{\"source\": \"";
-    print_filename source_file;
-    print_string "\", \"depends_on\""; 
-    print_string depends_on;
-    print_char '[';
-    let set_list = String.Set.elements deps in 
-    let is_valid x = (match x.[0] with
-    | 'A'..'Z' | '\128'..'\255' -> true
-    | _ -> false)
-    in 
-    let rec print_all xs = match xs with
-            | [] -> ()
-            | [x] -> if(is_valid x) then print_string x
-            | x::xs -> if (is_valid x) then print_string (x ^ ","); print_all xs
-            in
-    print_all (set_list);
-    print_char ']';
-    print_char '}'
+let print_json_dependencies source_file deps =
+
+  print_string "{\"source\": \"";
+  print_filename source_file;
+  print_string "\", \"depends_on\""; 
+  print_string depends_on;
+  print_char '[';
+  let set_list = String.Set.elements deps in 
+  let is_predef l= 
+    List.filter (fun dep ->
+        match dep.[0] with
+        | 'A'..'Z' | '\128'..'\255' -> true
+        | _ -> false
+      ) l in
+  let rec print_all xs = match xs with
+    | [] -> ()
+    | [x] -> print_string x
+    | x::xs -> print_string (x ^ ","); print_all xs
+  in
+  print_all (is_predef set_list);
+  print_char ']';
+  print_char '}'
 
 let print_raw_dependencies source_file deps =
   print_filename source_file; print_string depends_on;
@@ -636,7 +638,7 @@ let main () =
      "-modules", Arg.Set raw_dependencies,
         " Print module dependencies in raw form (not suitable for make)";
      "-modulesjson", Arg.Set print_json,
-        " Print module dependencies in JSON form (not suitable for make)";
+        " Print module dependencies in JSON form (suitable for make ?)";
      "-native", Arg.Set native_only,
         " Generate dependencies for native-code only (no .cmo files)";
      "-bytecode", Arg.Set bytecode_only,
