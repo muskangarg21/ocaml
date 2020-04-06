@@ -233,11 +233,10 @@ let is_predef l=
      | _ -> false
   ) l 
 
-let rec print_list print xs space comma = match xs with
+let rec print_list print xs sep = match xs with
   | [] -> ()
-  | [x] -> print_string space; print x
-  | x::xs -> print_string space; print x; print_string comma; 
-      print_list print xs space comma
+  | [x] -> print x
+  | x::xs -> print x; print_char sep; print_list print xs sep
 
 let print_json_dependencies source_file deps =
   print_string "{\"source\": \"";
@@ -246,14 +245,15 @@ let print_json_dependencies source_file deps =
   print_string depends_on;
   print_char '[';
   let elements = String.Set.elements deps in 
-  print_list print_string (List.filter is_predef elements) "" ",";
+  print_list print_string (List.filter is_predef elements) ',';
   print_char ']';
   print_char '}'
 
 let print_raw_dependencies source_file deps =
   print_filename source_file; print_string depends_on;
-  let elements = String.Set.elements deps in 
-  print_list print_string (List.filter is_predef elements) " " "";
+  let elements = String.Set.elements deps in
+  if (List.length elements > 0) then print_char ' ';
+  print_list print_string (List.filter is_predef elements) ' ';
   print_char '\n'
 
 
@@ -667,7 +667,7 @@ let main () =
   if !sort_files then (sort_files_by_dependencies !files)
   else if(!print_json) then begin
     print_char '[';
-    print_list print_file_dependencies (List.sort compare !files) "" ",";
+    print_list print_file_dependencies (List.sort compare !files) ',';
     print_char ']';
   end
   else List.iter print_file_dependencies (List.sort compare !files);
