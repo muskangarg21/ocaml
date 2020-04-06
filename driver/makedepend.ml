@@ -233,10 +233,11 @@ let is_predef l=
      | _ -> false
   ) l 
 
-let rec print_list xs space comma = match xs with
+let rec print_list print xs space comma = match xs with
   | [] -> ()
-  | [x] -> print_string (space ^ x)
-  | x::xs -> print_string (space ^ x ^ comma); print_list xs space comma
+  | [x] -> print_string space; print x
+  | x::xs -> print_string space; print x; print_string comma; 
+      print_list print xs space comma
 
 let print_json_dependencies source_file deps =
   print_string "{\"source\": \"";
@@ -245,14 +246,14 @@ let print_json_dependencies source_file deps =
   print_string depends_on;
   print_char '[';
   let elements = String.Set.elements deps in 
-  print_list (List.filter is_predef elements) "" ",";
+  print_list print_string (List.filter is_predef elements) "" ",";
   print_char ']';
   print_char '}'
 
 let print_raw_dependencies source_file deps =
   print_filename source_file; print_string depends_on;
   let elements = String.Set.elements deps in 
-  print_list(List.filter is_predef elements) " " "";
+  print_list print_string (List.filter is_predef elements) " " "";
   print_char '\n'
 
 
@@ -390,10 +391,7 @@ let print_mli_dependencies source_file extracted_deps pp_deps =
 let print_file_dependencies (source_file, kind, extracted_deps, pp_deps) =
   if !raw_dependencies || !print_json then begin
     if !print_json
-    then begin 
-      print_json_dependencies source_file extracted_deps
-      (* print_char ',' *)
-    end
+    then print_json_dependencies source_file extracted_deps
     else print_raw_dependencies source_file extracted_deps
   end else
     match kind with
@@ -668,16 +666,10 @@ let main () =
   Compenv.readenv ppf Before_link;
   if !sort_files then (sort_files_by_dependencies !files)
   else if(!print_json) then begin
-      print_char '[';
-      let n = (List.length !files) -1 in
-      List.iteri (fun i x -> 
-        if i >= n 
-        then print_file_dependencies x
-        else begin print_file_dependencies x; print_char ',';
-             end
-      ) (List.sort compare !files);
-      print_char ']';
-    end
+    print_char '[';
+    print_list print_file_dependencies (List.sort compare !files) "" ",";
+    print_char ']';
+  end
   else List.iter print_file_dependencies (List.sort compare !files);
   exit (if Error_occurred.get () then 2 else 0)
 
