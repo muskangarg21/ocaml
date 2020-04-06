@@ -233,6 +233,11 @@ let is_predef l=
      | _ -> false
   ) l 
 
+let rec print_list xs space comma = match xs with
+  | [] -> ()
+  | [x] -> print_string (space ^ x)
+  | x::xs -> print_string (space ^ x ^ comma); print_list xs space comma
+
 let print_json_dependencies source_file deps =
   print_string "{\"source\": \"";
   print_filename source_file;
@@ -240,22 +245,14 @@ let print_json_dependencies source_file deps =
   print_string depends_on;
   print_char '[';
   let elements = String.Set.elements deps in 
-  let rec print_all xs = match xs with
-    | [] -> ()
-    | [x] -> print_string x
-    | x::xs -> print_string (x ^ ","); print_all xs
-  in
-  print_all (List.filter is_predef elements);
+  print_list (List.filter is_predef elements) "" ",";
   print_char ']';
   print_char '}'
 
 let print_raw_dependencies source_file deps =
   print_filename source_file; print_string depends_on;
   let elements = String.Set.elements deps in 
-  List.iter ( fun dep -> 
-      print_char ' ';
-      print_string dep 
-    ) (List.filter is_predef elements);
+  print_list(List.filter is_predef elements) " " "";
   print_char '\n'
 
 
