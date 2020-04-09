@@ -231,30 +231,34 @@ let is_predef l=
      match dep.[0] with
      | 'A'..'Z' | '\128'..'\255' -> true
      | _ -> false
-  ) l 
+  ) l
 
-let rec print_list print xs sep = match xs with
+let rec print_list sep print xs = match xs with
   | [] -> ()
   | [x] -> print x
-  | x::xs -> print x; print_char sep; print_list print xs sep
+  | x::xs -> print x; print_char sep; print_list sep print xs
+
+let keyed_element op cl printk key printe element =
+  printk key; print_string depends_on;
+  print_string op; printe element; print_string cl
 
 let print_json_dependencies source_file deps =
-  print_string "{\"source\": \"";
-  print_filename source_file;
-  print_string "\", \"depends_on\""; 
-  print_string depends_on;
-  print_char '[';
-  let elements = String.Set.elements deps in 
-  print_list print_string (List.filter is_predef elements) ',';
-  print_char ']';
+  print_char '{';
+  keyed_element "\"" "\"" print_string "\"source\"" print_filename source_file;
+  print_char ',';
+  let elements = List.filter is_predef(String.Set.elements deps) in
+  keyed_element "[" "]" print_string "\"depends_on\""
+    (print_list ',' print_string) elements;
   print_char '}'
 
 let print_raw_dependencies source_file deps =
-  print_filename source_file; print_string depends_on;
-  let elements = String.Set.elements deps in
-  if (List.length elements > 0) then print_char ' ';
-  print_list print_string (List.filter is_predef elements) ' ';
-  print_char '\n'
+  (* print_filename source_file; print_string depends_on; *)
+  let elements = List.filter is_predef(String.Set.elements deps) in
+  match elements with
+  | [] -> print_filename source_file; print_string depends_on; print_char '\n'
+  | x::xs -> keyed_element "" "" print_filename source_file
+               (print_list ' ' print_string) ((" " ^ x)::xs);
+      print_char '\n'
 
 
 (* Process one file *)
@@ -665,9 +669,9 @@ let main () =
   Clflags.parse_arguments file_dependencies usage;
   Compenv.readenv ppf Before_link;
   if !sort_files then (sort_files_by_dependencies !files)
-  else if(!print_json) then begin
+  else if !print_json then begin
     print_char '[';
-    print_list print_file_dependencies (List.sort compare !files) ',';
+    print_list ',' print_file_dependencies (List.sort compare !files);
     print_char ']';
   end
   else List.iter print_file_dependencies (List.sort compare !files);
