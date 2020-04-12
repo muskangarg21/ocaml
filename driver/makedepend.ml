@@ -229,6 +229,10 @@ let print_dependencies target_files deps =
 let enclose op cl print x =
   print_string op; print x; print_string cl
 
+let enclose_squared print x = enclose "[" "]" print x
+let enclose_quotes print x = enclose "\"" "\"" print x 
+let enclose_curly print x = enclose "{" "}" print x 
+
 let is_predef l= 
   (fun dep ->
      match dep.[0] with
@@ -242,24 +246,27 @@ let rec print_list sep print xs = match xs with
   | x::xs -> print x; print_char sep; print_list sep print xs
 
 let keyed_element printk key printe element =
-  printk key; print_string depends_on; printe element
+  printk key; print_char ':'; printe element
+
+let print_tup (print_a, a, print_b, b) = print_a a; print_char ','; print_b b
 
 let print_json_dependencies source_file deps =
-  enclose "{" "" (keyed_element print_string "\"source\""
-                    (enclose "\"" "\"" print_filename)) source_file;
-  print_char ',';
   let elements = List.filter is_predef(String.Set.elements deps) in
-  enclose "" "}" (keyed_element print_string "\"depends_on\""
-                    (enclose "[" "]" (print_list ','
-                                        (enclose "\"" "\"" print_string))))
+  enclose_curly print_tup(
+    (keyed_element (enclose_quotes print_string) "source" 
+       (enclose_quotes print_filename)),
+    source_file,
+    (keyed_element (enclose_quotes print_string) "depends_on"
+       (enclose_squared (print_list ','(enclose_quotes print_string)))),
     elements
+  )
 
 let print_raw_dependencies source_file deps =
   let elements = List.filter is_predef(String.Set.elements deps) in
   (match elements with
    | [] -> print_filename source_file; print_string depends_on
    | x::xs -> keyed_element print_filename source_file
-                (enclose "" "" (print_list ' ' print_string)) ((" " ^ x)::xs)
+                (print_list ' ' print_string) ((" " ^ x)::xs)
   ); print_char '\n'
 
 
@@ -672,8 +679,8 @@ let main () =
   Compenv.readenv ppf Before_link;
   if !sort_files then (sort_files_by_dependencies !files)
   else if !print_json then begin
-    enclose "[" "]"
-    (print_list ',' print_file_dependencies) (List.sort compare !files);
+    enclose_squared (print_list ',' print_file_dependencies) 
+    (List.sort compare !files);
   end
   else List.iter print_file_dependencies (List.sort compare !files);
   exit (if Error_occurred.get () then 2 else 0)
