@@ -16,7 +16,8 @@
 open Compenv
 open Parsetree
 module String = Misc.Stdlib.String
-module Json = struct
+
+module Printer = struct
   let enclose op cl print x =
     print_string op; print x; print_string cl
   
@@ -24,22 +25,27 @@ module Json = struct
   let enclose_quotes print x = enclose "\"" "\"" print x 
   let enclose_curly print x = enclose "{" "}" print x 
   
-  let is_predef l= 
-    (fun dep ->
-       match dep.[0] with
-       | 'A'..'Z' | '\128'..'\255' -> true
-       | _ -> false
-    ) l
-  
   let rec print_list sep print xs = match xs with
     | [] -> ()
     | [x] -> print x
     | x::xs -> print x; print_char sep; print_list sep print xs
-  
-  let keyed_element printk key printe element =
-    printk key; print_char ':'; printe element
+end
+
+module Json = struct
+  open Printer
+  let keyed_element key printe element =
+    print_string key; print_char ':'; printe element
   
   let print_tup (print_a, a, print_b, b) = print_a a; print_char ','; print_b b
+
+  let string = (enclose_quotes print_string)
+  let list = (enclose_squared (print_list ',' string))
+
+  let object_2 (key_1,print_1,val_1) (key_2,print_2,val_2) =
+    enclose_curly print_tup (
+    keyed_element key_1 print_1, val_1,
+    keyed_element key_2 print_2, val_2
+  )
 
 end
 let ppf = Format.err_formatter
@@ -251,24 +257,24 @@ let print_dependencies target_files deps =
   List.iter print_dep deps;
   print_string "\n"
 
+let is_predef l= 
+  (fun dep ->
+      match dep.[0] with
+      | 'A'..'Z' | '\128'..'\255' -> true
+      | _ -> false
+  ) l
 
 let print_json_dependencies source_file deps =
-  let elements = List.filter Json.is_predef(String.Set.elements deps) in
-  Json.enclose_curly Json.print_tup(
-    (Json.keyed_element (Json.enclose_quotes print_string) "source" 
-        (Json.enclose_quotes print_filename)),
-    source_file,
-    (Json.keyed_element (Json.enclose_quotes print_string) "depends_on"
-        (Json.enclose_squared (Json.print_list ','(Json.enclose_quotes print_string)))),
-    elements
-  )
+  let elements = List.filter is_predef(String.Set.elements deps) in
+    let open Json in
+      object_2 ("source",string,source_file) ("depends_on",list,elements)
 
 let print_raw_dependencies source_file deps =
-  let elements = List.filter Json.is_predef(String.Set.elements deps) in
+  print_filename source_file; print_char ':' ;
+  let elements = List.filter is_predef(String.Set.elements deps) in
   (match elements with
-   | [] -> print_filename source_file; print_string depends_on
-   | x::xs -> Json.keyed_element print_filename source_file
-                (Json.print_list ' ' print_string) ((" " ^ x)::xs)
+   | [] -> ()
+   | x::xs -> Printer.print_list ' ' print_string ((" " ^ x)::xs)
   ); print_char '\n'
 
 
@@ -681,8 +687,8 @@ let main () =
   Compenv.readenv ppf Before_link;
   if !sort_files then (sort_files_by_dependencies !files)
   else if !print_json then begin
-    Json.enclose_squared (Json.print_list ',' print_file_dependencies) 
-    (List.sort compare !files);
+    Printer.enclose_squared (Printer.print_list ',' print_file_dependencies) 
+    (List.sort compare !files);print_char '\n';
   end
   else List.iter print_file_dependencies (List.sort compare !files);
   exit (if Error_occurred.get () then 2 else 0)
