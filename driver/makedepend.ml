@@ -15,6 +15,7 @@
 
 open Compenv
 open Parsetree
+
 module String = Misc.Stdlib.String
 
 module Printer = struct
@@ -33,15 +34,15 @@ end
 
 module Json = struct
   open Printer
-  let keyed_element key printe element =
-    print_string key; print_char ':'; printe element
-  
-  let print_tup (print_a, a, print_b, b) = print_a a; print_char ','; print_b b
-
   let string = (enclose_quotes print_string)
-  let list = (enclose_squared (print_list ',' string))
 
-  let object_2 (key_1,print_1,val_1) (key_2,print_2,val_2) =
+  let list typ = (enclose_squared (print_list ',' typ))
+
+  let keyed_element key printe element =
+    string key; print_char ':'; printe element
+
+  let object_2 (key_1,print_1) (key_2,print_2) val_1 val_2 =
+    let print_tup (print_a, a, print_b, b) = print_a a; print_char ','; print_b b in
     enclose_curly print_tup (
     keyed_element key_1 print_1, val_1,
     keyed_element key_2 print_2, val_2
@@ -267,14 +268,14 @@ let is_predef l=
 let print_json_dependencies source_file deps =
   let elements = List.filter is_predef(String.Set.elements deps) in
     let open Json in
-      object_2 ("source",string,source_file) ("depends_on",list,elements)
+      object_2 ("source",string) ("depends_on",(list string)) source_file elements
 
 let print_raw_dependencies source_file deps =
   print_filename source_file; print_char ':' ;
   let elements = List.filter is_predef(String.Set.elements deps) in
   (match elements with
    | [] -> ()
-   | x::xs -> Printer.print_list ' ' print_string ((" " ^ x)::xs)
+   | _ -> print_char ' '; Printer.print_list ' ' print_string elements
   ); print_char '\n'
 
 
@@ -687,8 +688,8 @@ let main () =
   Compenv.readenv ppf Before_link;
   if !sort_files then (sort_files_by_dependencies !files)
   else if !print_json then begin
-    Printer.enclose_squared (Printer.print_list ',' print_file_dependencies) 
-    (List.sort compare !files);print_char '\n';
+    Json.list print_file_dependencies (List.sort compare !files);
+    print_char '\n';
   end
   else List.iter print_file_dependencies (List.sort compare !files);
   exit (if Error_occurred.get () then 2 else 0)
