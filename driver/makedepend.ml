@@ -18,37 +18,28 @@ open Parsetree
 
 module String = Misc.Stdlib.String
 
-module Printer = struct
-  let enclose op cl print x =
-    print_string op; print x; print_string cl
-  
-  let enclose_squared print x = enclose "[" "]" print x
-  let enclose_quotes print x = enclose "\"" "\"" print x 
-  let enclose_curly print x = enclose "{" "}" print x 
-  
-  let rec print_list sep print xs = match xs with
-    | [] -> ()
-    | [x] -> print x
-    | x::xs -> print x; print_char sep; print_list sep print xs
-end
-
 module Json = struct
-  open Printer
-  let string = (enclose_quotes print_string)
+  let comma =(fun f () -> Format.fprintf f ",")
 
-  let list typ = (enclose_squared (print_list ',' typ))
+  let rec print_json f = function
+    | `string s ->
+        Format.fprintf f "%S" s
+    | `list l ->
+        Format.fprintf f "[@[<h>%a@]]"
+          (Format.pp_print_list ~pp_sep:comma
+             (fun f x -> Format.fprintf f "%S" x)) l
+    | `object_n o ->
+        Format.fprintf f "{@[<h>%a@]}"
+          (Format.pp_print_list ~pp_sep:comma keyed_element) o
 
-  let keyed_element key printe element =
-    string key; print_char ':'; printe element
+  and keyed_element f (key, element) =
+    Format.fprintf f "%S:%a" key print_json element
 
-  let object_2 (key_1,print_1) (key_2,print_2) val_1 val_2 =
-    let print_tup (print_a, a, print_b, b) = print_a a; print_char ','; print_b b in
-    enclose_curly print_tup (
-    keyed_element key_1 print_1, val_1,
-    keyed_element key_2 print_2, val_2
-  )
+  let object_2 key_1 key_2 val_1 val_2 =
+    Format.printf "@[<h>%a@]" print_json (`object_n[key_1,val_1;key_2,val_2];)
 
 end
+
 let ppf = Format.err_formatter
 (* Print the dependencies *)
 
@@ -267,16 +258,18 @@ let is_predef l=
 
 let print_json_dependencies source_file deps =
   let elements = List.filter is_predef(String.Set.elements deps) in
-    let open Json in
-      object_2 ("source",string) ("depends_on",(list string)) source_file elements
+  let open Json in
+  object_2 "source" "depends_on" (`string source_file) (`list elements)
 
 let print_raw_dependencies source_file deps =
-  print_filename source_file; print_char ':' ;
   let elements = List.filter is_predef(String.Set.elements deps) in
   (match elements with
-   | [] -> ()
-   | _ -> print_char ' '; Printer.print_list ' ' print_string elements
-  ); print_char '\n'
+   | [] -> Format.printf "@[<v>%a:@]@." (fun _ -> print_filename) source_file;
+   | _ -> Format.printf "@[%a: %a@]@." (fun _ -> print_filename) source_file
+            (Format.pp_print_list ~pp_sep:Format.pp_print_space
+               Format.pp_print_string)
+            elements
+  )
 
 
 (* Process one file *)
@@ -688,8 +681,8 @@ let main () =
   Compenv.readenv ppf Before_link;
   if !sort_files then (sort_files_by_dependencies !files)
   else if !print_json then begin
-    Json.list print_file_dependencies (List.sort compare !files);
-    print_char '\n';
+    Format.printf "[@[<h 0>%a@]]\n" (Format.pp_print_list ~pp_sep:Json.comma
+    (fun _ -> print_file_dependencies)) (List.sort compare !files);
   end
   else List.iter print_file_dependencies (List.sort compare !files);
   exit (if Error_occurred.get () then 2 else 0)
