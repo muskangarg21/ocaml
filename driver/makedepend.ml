@@ -19,25 +19,26 @@ open Parsetree
 module String = Misc.Stdlib.String
 
 module Json = struct
-  let comma =(fun f () -> Format.fprintf f ",")
+  (* let comma =(fun f () -> Format.fprintf f ",") *)
+  type t =
+    String of string
+  | Assoc of (string * t) list
+  | List of t list
 
-  let rec print_json f = function
-    | `string s ->
-        Format.fprintf f "%S" s
-    | `list l ->
-        Format.fprintf f "[@[<h>%a@]]"
+  let comma ppf () = Format.fprintf ppf ","
+
+  let rec print ppf = function
+    | String s ->
+        Format.fprintf ppf "%S" s
+    | Assoc o ->
+    Format.fprintf ppf "{@[<h>%a@]}"
+      (Format.pp_print_list ~pp_sep:comma keyed_element) o
+    | List l ->
+        Format.fprintf ppf "[@[<h>%a@]]"
           (Format.pp_print_list ~pp_sep:comma
-             (fun f x -> Format.fprintf f "%S" x)) l
-    | `object_n o ->
-        Format.fprintf f "{@[<h>%a@]}"
-          (Format.pp_print_list ~pp_sep:comma keyed_element) o
-
-  and keyed_element f (key, element) =
-    Format.fprintf f "%S:%a" key print_json element
-
-  let object_2 key_1 key_2 val_1 val_2 =
-    Format.printf "@[<h>%a@]" print_json (`object_n[key_1,val_1;key_2,val_2];)
-
+             print ) l
+  and keyed_element ppf (key, element) =
+    Format.fprintf ppf "%S:%a" key print element
 end
 
 let ppf = Format.err_formatter
@@ -193,10 +194,10 @@ let find_dependency target_kind modname (byt_deps, opt_deps) =
 
 let (depends_on, escaped_eol) = (":", " \\\n    ")
 
-let print_filename s =
+let print_filename ppf s =
   let s = if !Clflags.force_slash then fix_slash s else s in
   if not (String.contains s ' ') then begin
-    print_string s;
+    Format.fprintf ppf "%s" s
   end else begin
     let rec count n i =
       if i >= String.length s then n
@@ -217,55 +218,58 @@ let print_filename s =
       end
     in
     loop 0 0;
-    print_bytes result;
+    Format.fprintf ppf "%s" (Bytes.to_string result);
   end
 ;;
 
-let print_dependencies target_files deps =
+let print_dependencies ppf target_files deps =
   let pos = ref 0 in
-  let print_on_same_line item =
-    if !pos <> 0 then print_string " ";
-    print_filename item;
+  let print_on_same_line ppf item =
+    if !pos <> 0 then Format.fprintf ppf "%s" " " ;
+    print_filename ppf item;
     pos := !pos + String.length item + 1;
   in
-  let print_on_new_line item =
-    print_string escaped_eol;
-    print_filename item;
+  let print_on_new_line ppf item =
+    Format.fprintf ppf "%s" escaped_eol;
+    print_filename ppf item;
     pos := String.length item + 4;
   in
-  let print_compact item =
+  let print_compact ppf item =
     if !one_line || (!pos + 1 + String.length item <= 77)
-    then print_on_same_line item
-    else print_on_new_line item
+    then print_on_same_line ppf item
+    else print_on_new_line ppf item
   in
-  let print_dep item =
+  let print_dep ppf item =
     if !one_line
-    then print_on_same_line item
-    else print_on_new_line item
+    then print_on_same_line ppf item
+    else print_on_new_line ppf item
   in
-  List.iter print_compact target_files;
-  print_string " "; print_string depends_on;
+  List.iter (print_compact ppf) target_files;
+  (* print_string " "; print_string depends_on; *)
+  Format.fprintf ppf "%s" " :";
   pos := !pos + String.length depends_on + 1;
-  List.iter print_dep deps;
-  print_string "\n"
+  List.iter (print_dep ppf) deps;
+  (* print_string "\n" *)
+  Format.fprintf ppf "\n"
 
-let is_predef l= 
+let is_predef =
   (fun dep ->
       match dep.[0] with
       | 'A'..'Z' | '\128'..'\255' -> true
       | _ -> false
-  ) l
+  )
 
-let print_json_dependencies source_file deps =
-  let elements = List.filter is_predef(String.Set.elements deps) in
+let json_dependencies source_file deps =
   let open Json in
-  object_2 "source" "depends_on" (`string source_file) (`list elements)
+  let elements = List.map (fun x -> String x)
+  (List.filter is_predef(String.Set.elements deps)) in
+    Assoc["source",(String source_file);"depends_on",(List elements)]
 
 let print_raw_dependencies source_file deps =
   let elements = List.filter is_predef(String.Set.elements deps) in
   (match elements with
-   | [] -> Format.printf "@[<v>%a:@]@." (fun _ -> print_filename) source_file;
-   | _ -> Format.printf "@[%a: %a@]@." (fun _ -> print_filename) source_file
+   | [] -> Format.printf "@[<v>%a:@]" print_filename source_file;
+   | _ -> Format.printf "@[%a: %a@]" print_filename source_file
             (Format.pp_print_list ~pp_sep:Format.pp_print_space
                Format.pp_print_string)
             elements
@@ -365,7 +369,7 @@ let read_parse_and_extract parse_function extract_function def ast_kind
       (read_and_approximate source_file, def)
   end
 
-let print_ml_dependencies source_file extracted_deps pp_deps =
+let print_ml_dependencies ppf source_file extracted_deps pp_deps =
   let basename = Filename.chop_extension source_file in
   let byte_targets = [ basename ^ ".cmo" ] in
   let native_targets =
@@ -386,33 +390,34 @@ let print_ml_dependencies source_file extracted_deps pp_deps =
     String.Set.fold (find_dependency ML)
       extracted_deps init_deps in
   if not !native_only then
-    print_dependencies (byte_targets @ extra_targets) (byt_deps @ pp_deps);
+    print_dependencies ppf (byte_targets @ extra_targets) (byt_deps @ pp_deps);
   if not !bytecode_only then
     begin
-      print_dependencies (native_targets @ extra_targets)
+      print_dependencies ppf (native_targets @ extra_targets)
         (native_deps @ pp_deps);
       if !shared then
-        print_dependencies (shared_targets @ extra_targets)
+        print_dependencies ppf (shared_targets @ extra_targets)
           (native_deps @ pp_deps)
     end
 
-let print_mli_dependencies source_file extracted_deps pp_deps =
+let print_mli_dependencies ppf source_file extracted_deps pp_deps =
   let basename = Filename.chop_extension source_file in
   let (byt_deps, _opt_deps) =
     String.Set.fold (find_dependency MLI)
       extracted_deps ([], []) in
-  print_dependencies [basename ^ ".cmi"] (byt_deps @ pp_deps)
+  print_dependencies ppf [basename ^ ".cmi"] (byt_deps @ pp_deps)
 
-let print_file_dependencies (source_file, kind, extracted_deps, pp_deps) =
-  if !raw_dependencies || !print_json then begin
-    if !print_json
-    then print_json_dependencies source_file extracted_deps
-    else print_raw_dependencies source_file extracted_deps
+let print_file_dependencies ppf (source_file, kind, extracted_deps, pp_deps) =
+  if !raw_dependencies then begin
+    print_raw_dependencies source_file extracted_deps
   end else
     match kind with
-    | ML -> print_ml_dependencies source_file extracted_deps pp_deps
-    | MLI -> print_mli_dependencies source_file extracted_deps pp_deps
+    | ML -> print_ml_dependencies ppf source_file extracted_deps pp_deps
+    | MLI -> print_mli_dependencies ppf source_file extracted_deps pp_deps
 
+let print_json_dependencies ppf (source_file, _, extracted_deps, _) =
+  Format.fprintf ppf "@[<h>%a@]"
+    Json.print (json_dependencies source_file extracted_deps)
 
 let ml_file_dependencies source_file =
   let parse_use_file_as_impl lexbuf =
@@ -681,10 +686,18 @@ let main () =
   Compenv.readenv ppf Before_link;
   if !sort_files then (sort_files_by_dependencies !files)
   else if !print_json then begin
-    Format.printf "[@[<h 0>%a@]]\n" (Format.pp_print_list ~pp_sep:Json.comma
-    (fun _ -> print_file_dependencies)) (List.sort compare !files);
+    Format.printf "[@[<h 0>%a@]]@."
+      (Format.pp_print_list ~pp_sep:Json.comma
+         print_json_dependencies) (List.sort compare !files);
   end
-  else List.iter print_file_dependencies (List.sort compare !files);
+  else if !raw_dependencies then begin
+    Format.printf "@[<v 0>%a@]@."
+      (Format.pp_print_list
+         print_file_dependencies) (List.sort compare !files);
+  end
+  else Format.printf "@[<h 0>%a@]"
+      (Format.pp_print_list
+         print_file_dependencies) (List.sort compare !files);
   exit (if Error_occurred.get () then 2 else 0)
 
 let main_from_option () =
