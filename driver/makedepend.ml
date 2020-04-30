@@ -19,26 +19,78 @@ open Parsetree
 module String = Misc.Stdlib.String
 
 module Json = struct
-  (* let comma =(fun f () -> Format.fprintf f ",") *)
+
+  let escape_string s =
+    (* Escape only C0 control characters (bytes <= 0x1F), DEL(0x7F), '\\'
+       and '"' *)
+    let n = ref 0 in
+    for i = 0 to String.length s - 1 do
+      n := !n +
+           (match String.unsafe_get s i with
+            | '\"' | '\\' | '\n' | '\t' | '\r' | '\b' -> 2
+            | '\x00' .. '\x1F'
+            | '\x7F' -> 6
+            | _ -> 1)
+    done;
+    if !n = String.length s then s else begin
+      let s' = Bytes.create !n in
+      n := 0;
+      for i = 0 to String.length s - 1 do
+        begin match String.unsafe_get s i with
+        | ('\"' | '\\') as c ->
+            Bytes.unsafe_set s' !n '\\'; incr n; Bytes.unsafe_set s' !n c
+        | '\n' ->
+            Bytes.unsafe_set s' !n '\\'; incr n; Bytes.unsafe_set s' !n 'n'
+        | '\t' ->
+            Bytes.unsafe_set s' !n '\\'; incr n; Bytes.unsafe_set s' !n 't'
+        | '\r' ->
+            Bytes.unsafe_set s' !n '\\'; incr n; Bytes.unsafe_set s' !n 'r'
+        | '\b' ->
+            Bytes.unsafe_set s' !n '\\'; incr n; Bytes.unsafe_set s' !n 'b'
+        | '\x00' .. '\x1F' | '\x7F' as c ->
+            let a = Char.code c in
+            Bytes.unsafe_set s' !n '\\';
+            incr n;
+            Bytes.unsafe_set s' !n 'u';
+            incr n;
+            Bytes.unsafe_set s' !n '0';
+            incr n;
+            Bytes.unsafe_set s' !n '0';
+            incr n;
+            Bytes.unsafe_set s' !n (Char.chr (48 + a / 16));
+            incr n;
+            if ((a mod 16)<10) then begin
+              Bytes.unsafe_set s' !n (Char.chr (48 + a mod 16)) 
+            end
+            else Bytes.unsafe_set s' !n (Char.chr (55 + a mod 16));
+        | c -> Bytes.unsafe_set s' !n c
+        end;
+        incr n
+      done;
+      Bytes.to_string s'
+    end
+
   type t =
-    String of string
-  | Assoc of (string * t) list
-  | List of t list
+  [
+  | `String of string
+  | `Assoc of (string * t) list
+  | `List of t list
+  ]
 
   let comma ppf () = Format.fprintf ppf ","
 
-  let rec print ppf = function
-    | String s ->
-        Format.fprintf ppf "%S" s
-    | Assoc o ->
+  let rec print ppf  = function
+    | `String s ->
+        Format.fprintf ppf "\"%s\"" (escape_string s)
+    | `Assoc o ->
     Format.fprintf ppf "{@[<h>%a@]}"
       (Format.pp_print_list ~pp_sep:comma keyed_element) o
-    | List l ->
+    | `List l ->
         Format.fprintf ppf "[@[<h>%a@]]"
           (Format.pp_print_list ~pp_sep:comma
              print ) l
-  and keyed_element ppf (key, element) =
-    Format.fprintf ppf "%S:%a" key print element
+  and keyed_element ppf (key, (element:t)) =
+    Format.fprintf ppf "\"%s\":%a" (escape_string key) print element
 end
 
 let ppf = Format.err_formatter
@@ -194,53 +246,10 @@ let find_dependency target_kind modname (byt_deps, opt_deps) =
 
 let (depends_on, escaped_eol) = (":", " \\\n    ")
 
-let escape_string s =
-  (* Escape only C0 control characters (bytes <= 0x1F), DEL(0x7F), '\\'
-     and '"' *)
-   let n = ref 0 in
-  for i = 0 to String.length s - 1 do
-    n := !n +
-      (match String.unsafe_get s i with
-       | '\"' | '\\' | '\n' | '\t' | '\r' | '\b' -> 2
-       | '\x00' .. '\x1F'
-       | '\x7F' -> 4
-       | _ -> 1)
-  done;
-  if !n = String.length s then s else begin
-    let s' = Bytes.create !n in
-    n := 0;
-    for i = 0 to String.length s - 1 do
-      begin match String.unsafe_get s i with
-      | ('\"' | '\\') as c ->
-          Bytes.unsafe_set s' !n '\\'; incr n; Bytes.unsafe_set s' !n c
-      | '\n' ->
-          Bytes.unsafe_set s' !n '\\'; incr n; Bytes.unsafe_set s' !n 'n'
-      | '\t' ->
-          Bytes.unsafe_set s' !n '\\'; incr n; Bytes.unsafe_set s' !n 't'
-      | '\r' ->
-          Bytes.unsafe_set s' !n '\\'; incr n; Bytes.unsafe_set s' !n 'r'
-      | '\b' ->
-          Bytes.unsafe_set s' !n '\\'; incr n; Bytes.unsafe_set s' !n 'b'
-      | '\x00' .. '\x1F' | '\x7F' as c ->
-          let a = Char.code c in
-          Bytes.unsafe_set s' !n '\\';
-          incr n;
-          Bytes.unsafe_set s' !n (Char.chr (48 + a / 100));
-          incr n;
-          Bytes.unsafe_set s' !n (Char.chr (48 + (a / 10) mod 10));
-          incr n;
-          Bytes.unsafe_set s' !n (Char.chr (48 + a mod 10));
-      | c -> Bytes.unsafe_set s' !n c
-      end;
-      incr n
-    done;
-    Bytes.to_string s'
-  end
-
-let print_filename ppf s =
+let print_filename s =
   let s = if !Clflags.force_slash then fix_slash s else s in
   if not (String.contains s ' ') then begin
-    Format.fprintf ppf "%s" (escape_string s)
+    print_string s;
   end else begin
     let rec count n i =
       if i >= String.length s then n
@@ -261,39 +270,37 @@ let print_filename ppf s =
       end
     in
     loop 0 0;
-    Format.fprintf ppf "%s" (escape_string (Bytes.to_string result));
+    print_bytes result;
   end
 ;;
 
-let print_dependencies ppf target_files deps =
+let print_dependencies target_files deps =
   let pos = ref 0 in
-  let print_on_same_line ppf item =
-    if !pos <> 0 then Format.fprintf ppf "%s" " " ;
-    print_filename ppf item;
+  let print_on_same_line item =
+    if !pos <> 0 then print_string " ";
+    print_filename item;
     pos := !pos + String.length item + 1;
   in
-  let print_on_new_line ppf item =
-    Format.fprintf ppf "%s" escaped_eol;
-    print_filename ppf item;
+  let print_on_new_line item =
+    print_string escaped_eol;
+    print_filename item;
     pos := String.length item + 4;
   in
-  let print_compact ppf item =
+  let print_compact item =
     if !one_line || (!pos + 1 + String.length item <= 77)
-    then print_on_same_line ppf item
-    else print_on_new_line ppf item
+    then print_on_same_line item
+    else print_on_new_line item
   in
-  let print_dep ppf item =
+  let print_dep item =
     if !one_line
-    then print_on_same_line ppf item
-    else print_on_new_line ppf item
+    then print_on_same_line item
+    else print_on_new_line item
   in
-  List.iter (print_compact ppf) target_files;
-  (* print_string " "; print_string depends_on; *)
-  Format.fprintf ppf "%s" " :";
+  List.iter print_compact target_files;
+  print_string " "; print_string depends_on;
   pos := !pos + String.length depends_on + 1;
-  List.iter (print_dep ppf) deps;
-  (* print_string "\n" *)
-  Format.fprintf ppf "\n"
+  List.iter print_dep deps;
+  print_string "\n"
 
 let is_predef =
   (fun dep ->
@@ -303,20 +310,19 @@ let is_predef =
   )
 
 let json_dependencies source_file deps =
-  let open Json in
-  let elements = List.map (fun x -> String x)
+  let elements = List.map (fun x -> `String x)
   (List.filter is_predef(String.Set.elements deps)) in
-    Assoc["source",(String source_file);"depends_on",(List elements)]
+    `Assoc["source",(`String source_file);"depends_on",(`List elements)]
 
 let print_raw_dependencies source_file deps =
+  print_filename source_file; print_char ':';
   let elements = List.filter is_predef(String.Set.elements deps) in
   (match elements with
-   | [] -> Format.printf "@[<v>%a:@]" print_filename source_file;
-   | _ -> Format.printf "@[%a: %a@]" print_filename source_file
-            (Format.pp_print_list ~pp_sep:Format.pp_print_space
-               Format.pp_print_string)
-            elements
-  )
+   | [] -> ()
+   | _ -> print_string (Format.asprintf "@[<h 0> %a@]" (Format.pp_print_list 
+          ~pp_sep:Format.pp_print_space Format.pp_print_string)
+            elements)
+  ); print_char '\n'
 
 
 (* Process one file *)
@@ -412,7 +418,7 @@ let read_parse_and_extract parse_function extract_function def ast_kind
       (read_and_approximate source_file, def)
   end
 
-let print_ml_dependencies ppf source_file extracted_deps pp_deps =
+let print_ml_dependencies source_file extracted_deps pp_deps =
   let basename = Filename.chop_extension source_file in
   let byte_targets = [ basename ^ ".cmo" ] in
   let native_targets =
@@ -433,34 +439,30 @@ let print_ml_dependencies ppf source_file extracted_deps pp_deps =
     String.Set.fold (find_dependency ML)
       extracted_deps init_deps in
   if not !native_only then
-    print_dependencies ppf (byte_targets @ extra_targets) (byt_deps @ pp_deps);
+    print_dependencies (byte_targets @ extra_targets) (byt_deps @ pp_deps);
   if not !bytecode_only then
     begin
-      print_dependencies ppf (native_targets @ extra_targets)
+      print_dependencies (native_targets @ extra_targets)
         (native_deps @ pp_deps);
       if !shared then
-        print_dependencies ppf (shared_targets @ extra_targets)
+        print_dependencies (shared_targets @ extra_targets)
           (native_deps @ pp_deps)
     end
 
-let print_mli_dependencies ppf source_file extracted_deps pp_deps =
+let print_mli_dependencies source_file extracted_deps pp_deps =
   let basename = Filename.chop_extension source_file in
   let (byt_deps, _opt_deps) =
     String.Set.fold (find_dependency MLI)
       extracted_deps ([], []) in
-  print_dependencies ppf [basename ^ ".cmi"] (byt_deps @ pp_deps)
+  print_dependencies [basename ^ ".cmi"] (byt_deps @ pp_deps)
 
-let print_file_dependencies ppf (source_file, kind, extracted_deps, pp_deps) =
+let print_file_dependencies (source_file, kind, extracted_deps, pp_deps) =
   if !raw_dependencies then begin
     print_raw_dependencies source_file extracted_deps
   end else
     match kind with
-    | ML -> print_ml_dependencies ppf source_file extracted_deps pp_deps
-    | MLI -> print_mli_dependencies ppf source_file extracted_deps pp_deps
-
-let print_json_dependencies ppf (source_file, _, extracted_deps, _) =
-  Format.fprintf ppf "@[<h>%a@]"
-    Json.print (json_dependencies source_file extracted_deps)
+    | ML -> print_ml_dependencies source_file extracted_deps pp_deps
+    | MLI -> print_mli_dependencies source_file extracted_deps pp_deps
 
 let ml_file_dependencies source_file =
   let parse_use_file_as_impl lexbuf =
@@ -729,18 +731,11 @@ let main () =
   Compenv.readenv ppf Before_link;
   if !sort_files then (sort_files_by_dependencies !files)
   else if !print_json then begin
-    Format.printf "[@[<h 0>%a@]]@."
-      (Format.pp_print_list ~pp_sep:Json.comma
-         print_json_dependencies) (List.sort compare !files);
+    Format.printf "[@[<h 0>%a@]]@." 
+      Json.print (`List (List.map (fun (x,_,z,_) -> json_dependencies x z)
+                          @@ List.sort compare !files));
   end
-  else if !raw_dependencies then begin
-    Format.printf "@[<v 0>%a@]@."
-      (Format.pp_print_list
-         print_file_dependencies) (List.sort compare !files);
-  end
-  else Format.printf "@[<h 0>%a@]"
-      (Format.pp_print_list
-         print_file_dependencies) (List.sort compare !files);
+  else List.iter print_file_dependencies (List.sort compare !files);
   exit (if Error_occurred.get () then 2 else 0)
 
 let main_from_option () =
