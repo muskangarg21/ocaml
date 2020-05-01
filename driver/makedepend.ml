@@ -15,82 +15,48 @@
 
 open Compenv
 open Parsetree
-
 module String = Misc.Stdlib.String
 
 module Json = struct
-
-  let escape_string s =
-    (* Escape only C0 control characters (bytes <= 0x1F), DEL(0x7F), '\\'
-       and '"' *)
-    let n = ref 0 in
+  let escape_string ppf s =
     for i = 0 to String.length s - 1 do
-      n := !n +
-           (match String.unsafe_get s i with
-            | '\"' | '\\' | '\n' | '\t' | '\r' | '\b' -> 2
-            | '\x00' .. '\x1F'
-            | '\x7F' -> 6
-            | _ -> 1)
-    done;
-    if !n = String.length s then s else begin
-      let s' = Bytes.create !n in
-      n := 0;
-      for i = 0 to String.length s - 1 do
-        begin match String.unsafe_get s i with
-        | ('\"' | '\\') as c ->
-            Bytes.unsafe_set s' !n '\\'; incr n; Bytes.unsafe_set s' !n c
-        | '\n' ->
-            Bytes.unsafe_set s' !n '\\'; incr n; Bytes.unsafe_set s' !n 'n'
-        | '\t' ->
-            Bytes.unsafe_set s' !n '\\'; incr n; Bytes.unsafe_set s' !n 't'
-        | '\r' ->
-            Bytes.unsafe_set s' !n '\\'; incr n; Bytes.unsafe_set s' !n 'r'
-        | '\b' ->
-            Bytes.unsafe_set s' !n '\\'; incr n; Bytes.unsafe_set s' !n 'b'
-        | '\x00' .. '\x1F' | '\x7F' as c ->
-            let a = Char.code c in
-            Bytes.unsafe_set s' !n '\\';
-            incr n;
-            Bytes.unsafe_set s' !n 'u';
-            incr n;
-            Bytes.unsafe_set s' !n '0';
-            incr n;
-            Bytes.unsafe_set s' !n '0';
-            incr n;
-            Bytes.unsafe_set s' !n (Char.chr (48 + a / 16));
-            incr n;
-            if ((a mod 16)<10) then begin
-              Bytes.unsafe_set s' !n (Char.chr (48 + a mod 16)) 
-            end
-            else Bytes.unsafe_set s' !n (Char.chr (55 + a mod 16));
-        | c -> Bytes.unsafe_set s' !n c
-        end;
-        incr n
-      done;
-      Bytes.to_string s'
-    end
+      match s.[i] with 
+      |  ('\"' | '\\') as c ->
+          Format.fprintf ppf "\\%c" c
+      | '\n' ->
+          Format.fprintf ppf "\\%c" 'n'
+      | '\t' ->
+          Format.fprintf ppf "\\%c" 't'
+      | '\r' ->
+          Format.fprintf ppf "\\%c"  'r'
+      | '\b' ->
+          Format.fprintf ppf "\\%c" 'b'
+      | '\x00' .. '\x1F' | '\x7F' as c ->
+          Format.fprintf ppf "\\u%04X" (Char.code c)
+      | c -> Format.fprintf ppf "%c" c
+    done
 
   type t =
-  [
-  | `String of string
-  | `Assoc of (string * t) list
-  | `List of t list
-  ]
+    [
+      | `String of string
+      | `Assoc of (string * t) list
+      | `List of t list
+    ]
 
   let comma ppf () = Format.fprintf ppf ","
 
   let rec print ppf  = function
     | `String s ->
-        Format.fprintf ppf "\"%s\"" (escape_string s)
-    | `Assoc o ->
-    Format.fprintf ppf "{@[<h>%a@]}"
-      (Format.pp_print_list ~pp_sep:comma keyed_element) o
+        Format.fprintf ppf "\"%a\"" escape_string s
+    | `Assoc obj ->
+        Format.fprintf ppf "{@[<h>%a@]}"
+          (Format.pp_print_list ~pp_sep:comma keyed_element) obj
     | `List l ->
         Format.fprintf ppf "[@[<h>%a@]]"
           (Format.pp_print_list ~pp_sep:comma
              print ) l
   and keyed_element ppf (key, (element:t)) =
-    Format.fprintf ppf "\"%s\":%a" (escape_string key) print element
+    Format.fprintf ppf "\"%a\":%a" escape_string key print element
 end
 
 let ppf = Format.err_formatter
@@ -311,17 +277,21 @@ let is_predef =
 
 let json_dependencies source_file deps =
   let elements = List.map (fun x -> `String x)
-  (List.filter is_predef(String.Set.elements deps)) in
-    `Assoc["source",(`String source_file);"depends_on",(`List elements)]
+      (List.filter is_predef(String.Set.elements deps)) in
+  `Assoc[
+    "source",`String source_file;
+    "depends_on",`List elements;
+  ]
 
 let print_raw_dependencies source_file deps =
   print_filename source_file; print_char ':';
   let elements = List.filter is_predef(String.Set.elements deps) in
   (match elements with
    | [] -> ()
-   | _ -> print_string (Format.asprintf "@[<h 0> %a@]" (Format.pp_print_list 
-          ~pp_sep:Format.pp_print_space Format.pp_print_string)
-            elements)
+   | _ -> print_string Format.(asprintf "@[<h 0> %a@]"
+                                 (pp_print_list ~pp_sep:pp_print_space
+                                    pp_print_string)
+                                 elements)
   ); print_char '\n'
 
 
@@ -691,7 +661,7 @@ let main () =
      "-modules", Arg.Set raw_dependencies,
         " Print module dependencies in raw form (not suitable for make)";
      "-modulesjson", Arg.Set print_json,
-        " Print module dependencies in JSON form (suitable for make ?)";
+        " Print module dependencies in JSON form (not suitable for make)";
      "-native", Arg.Set native_only,
         " Generate dependencies for native-code only (no .cmo files)";
      "-bytecode", Arg.Set bytecode_only,
@@ -729,11 +699,12 @@ let main () =
   in
   Clflags.parse_arguments file_dependencies usage;
   Compenv.readenv ppf Before_link;
-  if !sort_files then (sort_files_by_dependencies !files)
+  if !sort_files then sort_files_by_dependencies !files
   else if !print_json then begin
-    Format.printf "[@[<h 0>%a@]]@." 
-      Json.print (`List (List.map (fun (x,_,z,_) -> json_dependencies x z)
-                          @@ List.sort compare !files));
+    Format.printf "[@[<h 0>%a@]]@."
+      Json.print (`List (List.map 
+                           (fun (file,_,deps,_) -> json_dependencies file deps)
+                         @@ List.sort compare !files));
   end
   else List.iter print_file_dependencies (List.sort compare !files);
   exit (if Error_occurred.get () then 2 else 0)
