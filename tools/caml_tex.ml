@@ -155,6 +155,8 @@ module Toplevel = struct
       pp_submsgs = base.pp_submsgs;
       pp_submsg = base.pp_submsg;
       pp_submsg_txt = base.pp_submsg_txt;
+      (* pp_init_report =base.pp_init_report; *)
+      (* pp_end_report =base.pp_end_report; *)
     }
 
   (** Capture warnings and keep them in a list *)

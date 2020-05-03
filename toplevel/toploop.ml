@@ -188,13 +188,24 @@ let record_backtrace () =
   if Printexc.backtrace_status ()
   then backtrace := Some (Printexc.get_backtrace ())
 
-let load_lambda ppf lam =
-  if !Clflags.dump_rawlambda then fprintf ppf "%a@." Printlambda.lambda lam;
+type log =
+  | Direct of Format.formatter
+  | Json of (string * Misc.Json.t) list ref
+
+let logf key out fmt =
+  match out with
+  | Direct ppf -> fprintf ppf fmt
+  | Json r->
+      kasprintf (fun s -> r := (key, `String s) :: !r)
+        fmt
+
+let load_lambda out lam =
+  if !Clflags.dump_rawlambda then logf "dump_rawlambda" out "%a@." Printlambda.lambda lam;
   let slam = Simplif.simplify_lambda lam in
-  if !Clflags.dump_lambda then fprintf ppf "%a@." Printlambda.lambda slam;
+  if !Clflags.dump_lambda then logf "dump_lambda" out "%a@." Printlambda.lambda slam;
   let (init_code, fun_code) = Bytegen.compile_phrase slam in
   if !Clflags.dump_instr then
-    fprintf ppf "%a%a@."
+    logf "dump_instr" out "%a%a@."
     Printinstr.instrlist init_code
     Printinstr.instrlist fun_code;
   let (code, reloc, events) =
@@ -267,13 +278,13 @@ let add_directive name dir_fun dir_info =
 
 (* Execute a toplevel phrase *)
 
-let execute_phrase print_outcome ppf phr =
+let execute_phrase print_outcome out phr =
   match phr with
   | Ptop_def sstr ->
       let oldenv = !toplevel_env in
       Typecore.reset_delayed_checks ();
       let (str, sg, sn, newenv) = Typemod.type_toplevel_phrase oldenv sstr in
-      if !Clflags.dump_typedtree then Printtyped.implementation ppf str;
+      if (!Clflags.dump_typedtree) then logf "dumped_typed_tree" out "%a@." Printtyped.implementation str;
       let sg' = Typemod.Signature_names.simplify newenv sn sg in
       ignore (Includemod.signatures oldenv sg sg');
       Typecore.force_delayed_checks ();
@@ -281,7 +292,7 @@ let execute_phrase print_outcome ppf phr =
       Warnings.check_fatal ();
       begin try
         toplevel_env := newenv;
-        let res = load_lambda ppf lam in
+        let res = load_lambda out lam in
         let out_phr =
           match res with
           | Result v ->
@@ -314,14 +325,13 @@ let execute_phrase print_outcome ppf phr =
               in
               Ophr_exception (exn, outv)
         in
-        !print_out_phrase ppf out_phr;
+        logf "phrase" out "%a@." !print_out_phrase out_phr;
         if Printexc.backtrace_status ()
         then begin
           match !backtrace with
             | None -> ()
             | Some b ->
-                pp_print_string ppf b;
-                pp_print_flush ppf ();
+                logf "backtrace" out "%a@." pp_print_string b;
                 backtrace := None;
         end;
         begin match out_phr with
@@ -338,12 +348,11 @@ let execute_phrase print_outcome ppf phr =
       in
       begin match d with
       | None ->
-          fprintf ppf "Unknown directive `%s'." dir_name;
           let directives =
             Hashtbl.fold (fun dir _ acc -> dir::acc) directive_table [] in
-          Misc.did_you_mean ppf
-            (fun () -> Misc.spellcheck directives dir_name);
-          fprintf ppf "@.";
+          logf "Unknown dir" out "Unknown directive `%s'. %a @." dir_name
+           Misc.did_you_mean (fun () -> Misc.spellcheck directives dir_name);
+
           false
       | Some d ->
           match d, pdir_arg with
@@ -353,25 +362,45 @@ let execute_phrase print_outcome ppf phr =
              begin match Int_literal_converter.int n with
              | n -> f n; true
              | exception _ ->
-               fprintf ppf "Integer literal exceeds the range of \
+               logf "integer range exceed" out "Integer literal exceeds the range of \
                             representable integers for directive `%s'.@."
                        dir_name;
                false
              end
           | Directive_int _, Some {pdira_desc = Pdir_int (_, Some _)} ->
-              fprintf ppf "Wrong integer literal for directive `%s'.@."
+              logf "wrong literal" out "Wrong integer literal for directive `%s'.@."
                 dir_name;
               false
           | Directive_ident f, Some {pdira_desc = Pdir_ident lid} -> f lid; true
           | Directive_bool f, Some {pdira_desc = Pdir_bool b} -> f b; true
           | _ ->
-              fprintf ppf "Wrong type of argument for directive `%s'.@."
+              logf "wrong type argument" out "Wrong type of argument for directive `%s'.@."
                 dir_name;
               false
       end
 
+let logged_execute_phrase print_outcome out phr =
+  try execute_phrase print_outcome out phr
+  with exn ->
+    Warnings.reset_fatal ();
+    raise exn
+
+let flush_log out ppf=
+  match out with 
+  | Json frag -> 
+    fprintf ppf "%a@." Json.print (`Assoc !frag)
+  | _ -> ()
+
+let init_log ppf =
+  let json_frag = ref [] in
+  if !Clflags.json then Json json_frag else Direct ppf
+
 let execute_phrase print_outcome ppf phr =
-  try execute_phrase print_outcome ppf phr
+  try 
+      let out = init_log ppf in
+      let ans = execute_phrase print_outcome out phr in
+      flush_log out ppf;
+      ans
   with exn ->
     Warnings.reset_fatal ();
     raise exn
@@ -395,6 +424,7 @@ let preprocess_phrase ppf phr =
   phr
 
 let use_channel ppf ~wrap_in_module ic name filename =
+  let out = init_log ppf in
   let lb = Lexing.from_channel ic in
   Warnings.reset_fatal ();
   Location.init lb filename;
@@ -407,11 +437,12 @@ let use_channel ppf ~wrap_in_module ic name filename =
       List.iter
         (fun ph ->
           let ph = preprocess_phrase ppf ph in
-          if not (execute_phrase !use_print_results ppf ph) then raise Exit)
+          if not (logged_execute_phrase !use_print_results out ph) then raise Exit)
         (if wrap_in_module then
-           parse_mod_use_file name lb
-         else
-           !parse_use_file lb);
+          parse_mod_use_file name lb
+        else
+          !parse_use_file lb);
+      flush_log out ppf;
       true
     with
     | Exit -> false
