@@ -111,6 +111,8 @@ let main () =
     exit 2
 
 let () =
+  Format.fprintf ppf "[@.";
   main ();
+  Format.fprintf ppf "]@.";
   Profile.print Format.std_formatter !Clflags.profile_columns;
   exit 0

@@ -178,6 +178,16 @@ module Stdlib : sig
   external compare : 'a -> 'a -> int = "%compare"
 end
 
+module Json : sig
+  type t =
+    [
+      | `String of string
+      | `Assoc of (string * t) list
+      | `List of t list
+    ]
+  val print : Format.formatter -> t -> unit
+end
+
 val find_in_path: string list -> string -> string
         (* Search a file in a list of directories. *)
 val find_in_path_rel: string list -> string -> string
@@ -401,6 +411,7 @@ module Error_style : sig
   type setting =
     | Contextual
     | Short
+    | Json
 
   val default_setting : setting
 end

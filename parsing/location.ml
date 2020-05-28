@@ -713,6 +713,7 @@ let batch_mode_printer : report_printer =
             highlight_quote ppf
               ~get_lines:lines_around_from_current_input
               tag [loc]
+      | Misc.Error_style.Json
       | Misc.Error_style.Short ->
           ()
     in
@@ -765,6 +766,108 @@ let batch_mode_printer : report_printer =
   { pp; pp_report_kind; pp_main_loc; pp_main_txt;
     pp_submsgs; pp_submsg; pp_submsg_loc; pp_submsg_txt }
 
+module Json = Misc.Json
+
+let json_mode_printer : report_printer =
+  (* let file_valid = function
+     | "_none_" ->
+        (* This is a dummy placeholder, but we print it anyway to please editors
+           that parse locations in error messages (e.g. Emacs). *)
+        true
+     | "" | "//toplevel//" -> false
+     | _ -> true
+     in
+     let line_valid line = line > 0 in
+     let chars_valid ~startchar ~endchar = startchar <> -1 && endchar <> -1 in
+  *)
+
+  let pp_loc ppf loc =
+    Format.fprintf ppf "@[%a@]" print_loc loc
+  in
+  let pp_txt ppf txt = Format.fprintf ppf "@[%t@]" txt in
+  let pp self ppf report =
+    setup_colors ();
+    let loc = report.main.loc in
+    let file =
+      (* According to the comment in location.mli, if [pos_fname] is "", we must
+         use [!input_name]. *)
+      if loc.loc_start.pos_fname = "" then !input_name
+      else loc.loc_start.pos_fname
+    in
+    let startline = string_of_int loc.loc_start.pos_lnum in
+    let endline = string_of_int loc.loc_end.pos_lnum in
+    let startchar = string_of_int(loc.loc_start.pos_cnum - loc.loc_start.pos_bol) in
+    let endchar = string_of_int(loc.loc_end.pos_cnum - loc.loc_end.pos_bol) in
+    let report_kind = function
+      | Report_error -> `Assoc["classsification",`String("error");]
+      | Report_warning w ->`Assoc["classsification",`String("warning"); "id", `String(w);]
+      | Report_warning_as_error w ->
+          `Assoc ["classsification",`String("error_from_warning"); "id", `String(w);]
+      | Report_alert w -> `Assoc ["classsification",`String("alert"); "id", `String(w);]
+      | Report_alert_as_error w ->
+          `Assoc ["classsification",`String("error_from_alert"); "id", `String(w);]
+    in
+    (* Make sure we keep [num_loc_lines] updated. *)
+    print_updating_num_loc_lines ppf (fun ppf () ->
+        Format.fprintf ppf "@[%a@]@." Json.print  
+          (`Assoc[
+              "main",`Assoc[
+                "location", `Assoc[
+                  "file", `String(file);
+                  "line", `Assoc[
+                    "start",`String(startline);
+                    "end",`String(endline);
+                  ];
+                  "character", `Assoc[
+                    "start",`String(startchar);
+                    "end",`String(endchar);
+                  ];
+                ];
+
+                (* `String (Format.asprintf "%a" (self.pp_main_loc self report) report.main.loc); *)
+                "content", `String(Format.asprintf "%a" (self.pp_main_txt self report) report.main.txt);
+              ];
+              "kind",report_kind report.kind;
+              "submsg",`List([`String(Format.asprintf "%a" (self.pp_submsgs self report) report.sub);] );
+            ])
+      ) ()
+  in
+  let pp_report_kind _self _ ppf = function
+    | Report_error -> Format.fprintf ppf "@{<error>Error@}"
+    | Report_warning w -> Format.fprintf ppf "@{<warning>Warning@} %s" w
+    | Report_warning_as_error w ->
+        Format.fprintf ppf "@{<error>Error@} (warning %s)" w
+    | Report_alert w -> Format.fprintf ppf "@{<warning>Alert@} %s" w
+    | Report_alert_as_error w ->
+        Format.fprintf ppf "@{<error>Error@} (alert %s)" w
+  in
+  
+  let pp_main_loc _self _ ppf loc =
+    pp_loc ppf loc
+  in
+  let pp_main_txt _self _ ppf txt =
+    pp_txt ppf txt
+  in
+  let pp_submsgs self report ppf msgs =
+    List.iter (fun msg ->
+      Format.fprintf ppf "@,%a" (self.pp_submsg self report) msg
+    ) msgs
+  in
+  let pp_submsg self report ppf { loc; txt } =
+    Format.fprintf ppf "@[%a  %a@]"
+      (self.pp_submsg_loc self report) loc
+      (self.pp_submsg_txt self report) txt
+  in
+  let pp_submsg_loc _ _ ppf loc =
+    if not loc.loc_ghost then
+      pp_loc ppf loc
+  in
+  let pp_submsg_txt _self _ ppf loc =
+    pp_txt ppf loc
+  in
+  { pp; pp_report_kind; pp_main_loc; pp_main_txt;
+    pp_submsgs; pp_submsg; pp_submsg_loc; pp_submsg_txt }
+
 let terminfo_toplevel_printer (lb: lexbuf): report_printer =
   let pp self ppf err =
     setup_colors ();
@@ -785,18 +888,19 @@ let terminfo_toplevel_printer (lb: lexbuf): report_printer =
 
 let best_toplevel_printer () =
   setup_terminal ();
-  match !status, !input_lexbuf with
+  json_mode_printer
+  (* match !status, !input_lexbuf with
   | Terminfo.Good_term, Some lb ->
       terminfo_toplevel_printer lb
   | _, _ ->
-      batch_mode_printer
+      batch_mode_printer *)
 
 (* Creates a printer for the current input *)
 let default_report_printer () : report_printer =
   if !input_name = "//toplevel//" then
     best_toplevel_printer ()
   else
-    batch_mode_printer
+    json_mode_printer
 
 let report_printer = ref default_report_printer
 
