@@ -697,6 +697,19 @@ let error_style () =
   | Some setting -> setting
   | None -> Misc.Error_style.default_setting
 
+let init_report_printer ppf () =
+  match error_style () with
+  | Misc.Error_style.Json -> 
+    Format.fprintf ppf "[@."
+  | _ -> 
+    Format.fprintf ppf ""
+let end_report_printer ppf () = 
+  match error_style () with
+  | Misc.Error_style.Json -> 
+    Format.fprintf ppf "]@."
+  | _ -> 
+    Format.fprintf ppf ""
+  
 let batch_mode_printer : report_printer =
   let pp_loc _self report ppf loc =
     let tag = match report.kind with
@@ -713,9 +726,9 @@ let batch_mode_printer : report_printer =
             highlight_quote ppf
               ~get_lines:lines_around_from_current_input
               tag [loc]
-      | Misc.Error_style.Json
-      | Misc.Error_style.Short ->
-          ()
+      | Misc.Error_style.Short
+      | Misc.Error_style.Json ->
+        ()
     in
     Format.fprintf ppf "@[<v>%a:@ %a@]" print_loc loc highlight loc
   in
@@ -764,7 +777,9 @@ let batch_mode_printer : report_printer =
     pp_txt ppf loc
   in
   { pp; pp_report_kind; pp_main_loc; pp_main_txt;
-    pp_submsgs; pp_submsg; pp_submsg_loc; pp_submsg_txt }
+    pp_submsgs; pp_submsg; pp_submsg_loc; pp_submsg_txt; 
+}
+    (* clean it up again *)
 
 module Json = Misc.Json
 
@@ -781,12 +796,7 @@ let json_mode_printer : report_printer =
      let chars_valid ~startchar ~endchar = startchar <> -1 && endchar <> -1 in
   *)
 
-  let pp_loc ppf loc =
-    Format.fprintf ppf "@[%a@]" print_loc loc
-  in
-  let pp_txt ppf txt = Format.fprintf ppf "@[%t@]" txt in
   let pp self ppf report =
-    setup_colors ();
     let loc = report.main.loc in
     let file =
       (* According to the comment in location.mli, if [pos_fname] is "", we must
@@ -807,66 +817,44 @@ let json_mode_printer : report_printer =
       | Report_alert_as_error w ->
           `Assoc ["classsification",`String("error_from_alert"); "id", `String(w);]
     in
+    let kind =
+      report_kind report.kind;
+    in
+    let start_end s e =
+      `Assoc[
+        "start",`String(s);
+        "end",`String(e);
+      ];
+    in
+    let location = 
+      `Assoc[
+        "file", `String(file);
+        "line", start_end startline endline ;
+        "character", start_end startchar endchar ;
+      ];
+    in
+    let content = `String (Format.asprintf "%a" (self.pp_main_txt self report) report.main.txt)
+    in
+    let main =
+      `Assoc[
+        "location", location ;
+        "content", content ;
+      ];
+    in
+    let submsg = 
+      `String(Format.asprintf "%a" (self.pp_submsgs self report) report.sub);
+    in
     (* Make sure we keep [num_loc_lines] updated. *)
     print_updating_num_loc_lines ppf (fun ppf () ->
         Format.fprintf ppf "@[%a@]@." Json.print  
           (`Assoc[
-              "main",`Assoc[
-                "location", `Assoc[
-                  "file", `String(file);
-                  "line", `Assoc[
-                    "start",`String(startline);
-                    "end",`String(endline);
-                  ];
-                  "character", `Assoc[
-                    "start",`String(startchar);
-                    "end",`String(endchar);
-                  ];
-                ];
-
-                (* `String (Format.asprintf "%a" (self.pp_main_loc self report) report.main.loc); *)
-                "content", `String(Format.asprintf "%a" (self.pp_main_txt self report) report.main.txt);
-              ];
-              "kind",report_kind report.kind;
-              "submsg",`List([`String(Format.asprintf "%a" (self.pp_submsgs self report) report.sub);] );
+              "main", main ;
+              "kind", kind ;
+              "submsgs",`List([submsg] );
             ])
       ) ()
   in
-  let pp_report_kind _self _ ppf = function
-    | Report_error -> Format.fprintf ppf "@{<error>Error@}"
-    | Report_warning w -> Format.fprintf ppf "@{<warning>Warning@} %s" w
-    | Report_warning_as_error w ->
-        Format.fprintf ppf "@{<error>Error@} (warning %s)" w
-    | Report_alert w -> Format.fprintf ppf "@{<warning>Alert@} %s" w
-    | Report_alert_as_error w ->
-        Format.fprintf ppf "@{<error>Error@} (alert %s)" w
-  in
-  
-  let pp_main_loc _self _ ppf loc =
-    pp_loc ppf loc
-  in
-  let pp_main_txt _self _ ppf txt =
-    pp_txt ppf txt
-  in
-  let pp_submsgs self report ppf msgs =
-    List.iter (fun msg ->
-      Format.fprintf ppf "@,%a" (self.pp_submsg self report) msg
-    ) msgs
-  in
-  let pp_submsg self report ppf { loc; txt } =
-    Format.fprintf ppf "@[%a  %a@]"
-      (self.pp_submsg_loc self report) loc
-      (self.pp_submsg_txt self report) txt
-  in
-  let pp_submsg_loc _ _ ppf loc =
-    if not loc.loc_ghost then
-      pp_loc ppf loc
-  in
-  let pp_submsg_txt _self _ ppf loc =
-    pp_txt ppf loc
-  in
-  { pp; pp_report_kind; pp_main_loc; pp_main_txt;
-    pp_submsgs; pp_submsg; pp_submsg_loc; pp_submsg_txt }
+  { batch_mode_printer with pp }
 
 let terminfo_toplevel_printer (lb: lexbuf): report_printer =
   let pp self ppf err =
@@ -878,7 +866,12 @@ let terminfo_toplevel_printer (lb: lexbuf): report_printer =
     let all_locs = err.main.loc :: sub_locs in
     let locs_highlighted = List.filter is_quotable_loc all_locs in
     highlight_terminfo lb ppf locs_highlighted;
-    batch_mode_printer.pp self ppf err
+    match error_style () with  (* how to set error-style in runtop, ask octachron*)
+      | Misc.Error_style.Contextual 
+      | Misc.Error_style.Short ->
+        batch_mode_printer.pp self ppf err
+      | Misc.Error_style.Json ->
+        json_mode_printer.pp self ppf err
   in
   let pp_main_loc _ _ _ _ = () in
   let pp_submsg_loc _ _ ppf loc =
@@ -888,19 +881,28 @@ let terminfo_toplevel_printer (lb: lexbuf): report_printer =
 
 let best_toplevel_printer () =
   setup_terminal ();
-  json_mode_printer
-  (* match !status, !input_lexbuf with
+  match !status, !input_lexbuf with
   | Terminfo.Good_term, Some lb ->
       terminfo_toplevel_printer lb
   | _, _ ->
-      batch_mode_printer *)
+    match error_style () with
+      | Misc.Error_style.Contextual 
+      | Misc.Error_style.Short ->
+          batch_mode_printer
+      | Misc.Error_style.Json ->
+          json_mode_printer
 
 (* Creates a printer for the current input *)
 let default_report_printer () : report_printer =
   if !input_name = "//toplevel//" then
     best_toplevel_printer ()
   else
-    json_mode_printer
+    match error_style () with
+      | Misc.Error_style.Contextual 
+      | Misc.Error_style.Short ->
+          batch_mode_printer
+      | Misc.Error_style.Json ->
+          json_mode_printer
 
 let report_printer = ref default_report_printer
 

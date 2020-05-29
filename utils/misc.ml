@@ -780,7 +780,7 @@ module Error_style = struct
     | Short
     | Json
 
-  let default_setting = Json
+  let default_setting = Contextual
 end
 
 let normalise_eol s =

@@ -108,11 +108,11 @@ let main () =
     end;
   with x ->
     Location.report_exception ppf x;
+    Location.end_report_printer ppf ();
     exit 2
 
 let () =
-  Format.fprintf ppf "[@.";
+  Location.init_report_printer ppf ();
   main ();
-  Format.fprintf ppf "]@.";
   Profile.print Format.std_formatter !Clflags.profile_columns;
   exit 0

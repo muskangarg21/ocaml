@@ -651,13 +651,14 @@ let mk_color f =
 ;;
 
 let mk_error_style f =
-  "-error-style", Arg.Symbol (["contextual"; "short"], f),
+  "-error-style", Arg.Symbol (["contextual"; "short"; "json"], f),
   Printf.sprintf
     "  Control the way error messages and warnings are printed\n\
     \    The following settings are supported:\n\
     \      short       only print the error and its location\n\
     \      contextual  like \"short\", but also display the source code\n\
     \                  snippet corresponding to the location of the error\n\
+    \      json        prints in json format\n\
     \    The default setting is 'contextual'.\n\
     \  If the option is not specified, these setting can alternatively\n\
     \  be set through the OCAML_ERROR_STYLE environment variable."
