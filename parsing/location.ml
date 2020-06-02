@@ -647,6 +647,9 @@ type report_printer = {
   pp : report_printer ->
     Format.formatter -> report -> unit;
 
+  pp_init_report: Format.formatter->unit;
+  pp_end_report: Format.formatter->unit;
+
   pp_report_kind : report_printer -> report ->
     Format.formatter -> report_kind -> unit;
   pp_main_loc : report_printer -> report ->
@@ -696,20 +699,6 @@ let error_style () =
   match !Clflags.error_style with
   | Some setting -> setting
   | None -> Misc.Error_style.default_setting
-
-let init_report_printer ppf () =
-  match error_style () with
-  | Misc.Error_style.Json -> 
-    Format.fprintf ppf "[@."
-  | _ -> 
-    ()
-
-let end_report_printer ppf () = 
-  match error_style () with
-  | Misc.Error_style.Json -> 
-    Format.fprintf ppf "]@."
-  | _ -> 
-    ()
   
 let batch_mode_printer : report_printer =
   let pp_loc _self report ppf loc =
@@ -778,8 +767,10 @@ let batch_mode_printer : report_printer =
   let pp_submsg_txt _self _ ppf loc =
     pp_txt ppf loc
   in
+  let pp_init_report _ = () in
+  let pp_end_report _ = () in
   { pp; pp_report_kind; pp_main_loc; pp_main_txt;
-    pp_submsgs; pp_submsg; pp_submsg_loc; pp_submsg_txt;}
+    pp_submsgs; pp_submsg; pp_submsg_loc; pp_submsg_txt; pp_init_report; pp_end_report;}
     (* clean it up again *)
 
 module Json = Misc.Json
@@ -852,7 +843,9 @@ let json_mode_printer : report_printer =
             ])
       ) ()
   in
-  { batch_mode_printer with pp;}
+  let pp_init_report ppf = Format.fprintf ppf "[@." in
+  let pp_end_report ppf = Format.fprintf ppf "]@." in
+  { batch_mode_printer with pp; pp_init_report; pp_end_report;}
 
 let terminfo_toplevel_printer (lb: lexbuf): report_printer =
   let pp self ppf err =
@@ -909,6 +902,14 @@ let report_printer = ref default_report_printer
 let print_report ppf report =
   let printer = !report_printer () in
   printer.pp printer ppf report
+
+let init_report_printer ppf () =
+  let printer = !report_printer () in
+  printer.pp_init_report ppf
+
+let end_report_printer ppf () =
+  let printer = !report_printer () in
+  printer.pp_end_report ppf
 
 (******************************************************************************)
 (* Reporting errors *)
