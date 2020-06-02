@@ -702,13 +702,14 @@ let init_report_printer ppf () =
   | Misc.Error_style.Json -> 
     Format.fprintf ppf "[@."
   | _ -> 
-    Format.fprintf ppf ""
+    ()
+
 let end_report_printer ppf () = 
   match error_style () with
   | Misc.Error_style.Json -> 
     Format.fprintf ppf "]@."
   | _ -> 
-    Format.fprintf ppf ""
+    ()
   
 let batch_mode_printer : report_printer =
   let pp_loc _self report ppf loc =
@@ -726,8 +727,9 @@ let batch_mode_printer : report_printer =
             highlight_quote ppf
               ~get_lines:lines_around_from_current_input
               tag [loc]
-      | Misc.Error_style.Short
-      | Misc.Error_style.Json ->
+      (*removing Json throws an error, ask octachron.*)
+      | Misc.Error_style.Json
+      | Misc.Error_style.Short ->
         ()
     in
     Format.fprintf ppf "@[<v>%a:@ %a@]" print_loc loc highlight loc
@@ -777,8 +779,7 @@ let batch_mode_printer : report_printer =
     pp_txt ppf loc
   in
   { pp; pp_report_kind; pp_main_loc; pp_main_txt;
-    pp_submsgs; pp_submsg; pp_submsg_loc; pp_submsg_txt; 
-}
+    pp_submsgs; pp_submsg; pp_submsg_loc; pp_submsg_txt;}
     (* clean it up again *)
 
 module Json = Misc.Json
@@ -795,19 +796,7 @@ let json_mode_printer : report_printer =
      let line_valid line = line > 0 in
      let chars_valid ~startchar ~endchar = startchar <> -1 && endchar <> -1 in
   *)
-
-  let pp self ppf report =
-    let loc = report.main.loc in
-    let file =
-      (* According to the comment in location.mli, if [pos_fname] is "", we must
-         use [!input_name]. *)
-      if loc.loc_start.pos_fname = "" then !input_name
-      else loc.loc_start.pos_fname
-    in
-    let startline = string_of_int loc.loc_start.pos_lnum in
-    let endline = string_of_int loc.loc_end.pos_lnum in
-    let startchar = string_of_int(loc.loc_start.pos_cnum - loc.loc_start.pos_bol) in
-    let endchar = string_of_int(loc.loc_end.pos_cnum - loc.loc_end.pos_bol) in
+  let pp _ ppf report =
     let report_kind = function
       | Report_error -> `Assoc["classsification",`String("error");]
       | Report_warning w ->`Assoc["classsification",`String("warning"); "id", `String(w);]
@@ -820,41 +809,50 @@ let json_mode_printer : report_printer =
     let kind =
       report_kind report.kind;
     in
-    let start_end s e =
+    let content txt = `String(Format.asprintf "@[%t@]" txt) in
+    (* let msg_to_json report_json = *)
+    let loc_to_json loc =
+      let file =
+        (* According to the comment in location.mli, if [pos_fname] is "", we must
+           use [!input_name]. *)
+        if loc.loc_start.pos_fname = "" then !input_name
+        else loc.loc_start.pos_fname
+      in
+      let startchar = string_of_int(loc.loc_start.pos_cnum - loc.loc_start.pos_bol) in
+      let endchar = string_of_int(loc.loc_end.pos_cnum - loc.loc_end.pos_bol) in
+      let startline = string_of_int loc.loc_start.pos_lnum in
+      let endline = string_of_int loc.loc_end.pos_lnum in
+      let start_end s e =
+        `Assoc[
+          "start",`String(s);
+          "end",`String(e);
+        ];
+      in
       `Assoc[
-        "start",`String(s);
-        "end",`String(e);
+      "file", `String(file);
+      "line", start_end startline endline ;
+      "character", start_end startchar endchar ;
+      ]
+    in
+    let msg_to_json {loc;txt} =
+      `Assoc[
+        "location",loc_to_json loc;
+        "content", content txt;
       ];
     in
-    let location = 
-      `Assoc[
-        "file", `String(file);
-        "line", start_end startline endline ;
-        "character", start_end startchar endchar ;
-      ];
-    in
-    let content = `String (Format.asprintf "%a" (self.pp_main_txt self report) report.main.txt)
-    in
-    let main =
-      `Assoc[
-        "location", location ;
-        "content", content ;
-      ];
-    in
-    let submsg = 
-      `String(Format.asprintf "%a" (self.pp_submsgs self report) report.sub);
-    in
+    let submsgs = List.map msg_to_json report.sub in
     (* Make sure we keep [num_loc_lines] updated. *)
+    let main = msg_to_json report.main in
     print_updating_num_loc_lines ppf (fun ppf () ->
         Format.fprintf ppf "@[%a@]@." Json.print  
           (`Assoc[
-              "main", main ;
-              "kind", kind ;
-              "submsgs",`List([submsg] );
+              "main", main;
+              "kind", kind;
+              "submsgs",`List(submsgs);
             ])
       ) ()
   in
-  { batch_mode_printer with pp }
+  { batch_mode_printer with pp;}
 
 let terminfo_toplevel_printer (lb: lexbuf): report_printer =
   let pp self ppf err =
@@ -866,12 +864,13 @@ let terminfo_toplevel_printer (lb: lexbuf): report_printer =
     let all_locs = err.main.loc :: sub_locs in
     let locs_highlighted = List.filter is_quotable_loc all_locs in
     highlight_terminfo lb ppf locs_highlighted;
-    match error_style () with  (* how to set error-style in runtop, ask octachron*)
+    batch_mode_printer.pp self ppf err
+    (* match error_style () with  (* how to set error-style in runtop, ask octachron*)
       | Misc.Error_style.Contextual 
       | Misc.Error_style.Short ->
         batch_mode_printer.pp self ppf err
       | Misc.Error_style.Json ->
-        json_mode_printer.pp self ppf err
+        json_mode_printer.pp self ppf err *)
   in
   let pp_main_loc _ _ _ _ = () in
   let pp_submsg_loc _ _ ppf loc =
@@ -885,12 +884,13 @@ let best_toplevel_printer () =
   | Terminfo.Good_term, Some lb ->
       terminfo_toplevel_printer lb
   | _, _ ->
-    match error_style () with
+      batch_mode_printer
+    (* match error_style () with
       | Misc.Error_style.Contextual 
       | Misc.Error_style.Short ->
           batch_mode_printer
       | Misc.Error_style.Json ->
-          json_mode_printer
+          json_mode_printer *)
 
 (* Creates a printer for the current input *)
 let default_report_printer () : report_printer =
