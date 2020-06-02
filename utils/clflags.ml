@@ -404,15 +404,15 @@ let error_style_reader = {
   parse = (function
     | "contextual" -> Some Misc.Error_style.Contextual
     | "short" -> Some Misc.Error_style.Short
-    | "json" ->Some Misc.Error_style.Json
     | _ -> None);
   print = (function
     | Misc.Error_style.Contextual -> "contextual"
-    | Misc.Error_style.Short -> "short"
-    | Misc.Error_style.Json -> "json");
-  usage = "expected \"contextual\" or \"short\" or \"json\"";
+    | Misc.Error_style.Short -> "short");
+  usage = "expected \"contextual\" or \"short\"";
   env_var = "OCAML_ERROR_STYLE";
 }
+
+let json = ref false
 
 let unboxed_types = ref false
 

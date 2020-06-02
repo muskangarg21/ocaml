@@ -716,8 +716,6 @@ let batch_mode_printer : report_printer =
             highlight_quote ppf
               ~get_lines:lines_around_from_current_input
               tag [loc]
-      (*removing Json throws an error, ask octachron.*)
-      | Misc.Error_style.Json
       | Misc.Error_style.Short ->
         ()
     in
@@ -858,12 +856,6 @@ let terminfo_toplevel_printer (lb: lexbuf): report_printer =
     let locs_highlighted = List.filter is_quotable_loc all_locs in
     highlight_terminfo lb ppf locs_highlighted;
     batch_mode_printer.pp self ppf err
-    (* match error_style () with  (* how to set error-style in runtop, ask octachron*)
-      | Misc.Error_style.Contextual 
-      | Misc.Error_style.Short ->
-        batch_mode_printer.pp self ppf err
-      | Misc.Error_style.Json ->
-        json_mode_printer.pp self ppf err *)
   in
   let pp_main_loc _ _ _ _ = () in
   let pp_submsg_loc _ _ ppf loc =
@@ -878,24 +870,16 @@ let best_toplevel_printer () =
       terminfo_toplevel_printer lb
   | _, _ ->
       batch_mode_printer
-    (* match error_style () with
-      | Misc.Error_style.Contextual 
-      | Misc.Error_style.Short ->
-          batch_mode_printer
-      | Misc.Error_style.Json ->
-          json_mode_printer *)
 
 (* Creates a printer for the current input *)
 let default_report_printer () : report_printer =
   if !input_name = "//toplevel//" then
     best_toplevel_printer ()
+  else if !Clflags.json then
+    json_mode_printer
   else
-    match error_style () with
-      | Misc.Error_style.Contextual 
-      | Misc.Error_style.Short ->
-          batch_mode_printer
-      | Misc.Error_style.Json ->
-          json_mode_printer
+    batch_mode_printer
+          
 
 let report_printer = ref default_report_printer
 

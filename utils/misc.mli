@@ -411,7 +411,6 @@ module Error_style : sig
   type setting =
     | Contextual
     | Short
-    | Json
 
   val default_setting : setting
 end

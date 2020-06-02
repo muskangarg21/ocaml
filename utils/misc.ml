@@ -778,7 +778,6 @@ module Error_style = struct
   type setting =
     | Contextual
     | Short
-    | Json
 
   let default_setting = Contextual
 end

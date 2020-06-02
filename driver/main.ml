@@ -32,6 +32,7 @@ let main () =
     readenv ppf Before_args;
     Clflags.parse_arguments anonymous usage;
     Compmisc.read_clflags_from_env ();
+    Location.init_report_printer ppf ();
     if !Clflags.plugin then
       fatal "-plugin is only supported up to OCaml 4.08.0";
     begin try
@@ -112,7 +113,6 @@ let main () =
     exit 2
 
 let () =
-  Location.init_report_printer ppf ();
   main ();
   Profile.print Format.std_formatter !Clflags.profile_columns;
   exit 0
