@@ -108,11 +108,17 @@ let main () =
       Warnings.check_fatal ();
     end;
   with x ->
-    Location.report_exception ppf x;
+    let out = Location.init_log ppf in
+    (* Location.init_json out; *)
+    (* Location.report_exception ppf x; *)
+    Location.logf "error_report" out "%a@." Location.report_exception x; (* the type has to be `List*) 
+    Location.flush_log out ppf;
     Location.end_report_printer ppf ();
     exit 2
 
 let () =
+
   main ();
   Profile.print Format.std_formatter !Clflags.profile_columns;
+  Location.end_report_printer ppf ();
   exit 0

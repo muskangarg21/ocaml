@@ -773,6 +773,27 @@ let batch_mode_printer : report_printer =
 
 module Json = Misc.Json
 
+type log =
+  | Direct of Format.formatter
+  | Json of (string * Misc.Json.t) list ref
+
+let logf key out fmt =
+  match out with
+  | Direct ppf -> Format.fprintf ppf fmt
+  | Json r->
+      Format.kasprintf (fun s -> r := (key, `String s) :: !r)
+        fmt
+
+let flush_log out ppf=
+  match out with 
+  | Json frag -> 
+    Format.fprintf ppf "%a@." Json.print (`Assoc !frag)
+  | _ -> ()
+
+let init_log ppf =
+  let json_frag = ref [] in
+  if !Clflags.json then Json json_frag else Direct ppf
+
 let json_mode_printer : report_printer =
   (* let file_valid = function
      | "_none_" ->
