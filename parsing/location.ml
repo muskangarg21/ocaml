@@ -773,9 +773,16 @@ let batch_mode_printer : report_printer =
 
 module Json = Misc.Json
 
+type logs =
+  { 
+    main : (string * Json.t) list ref;
+    report : Json.t list ref;
+    out: Format.formatter
+  }
+
 type log =
   | Direct of Format.formatter
-  | Json of (string * Misc.Json.t) list ref
+  | Json of logs
 
 let logf key out fmt =
   match out with
@@ -790,11 +797,7 @@ let flush_log out ppf=
     Format.fprintf ppf "%a@." Json.print (`Assoc !frag)
   | _ -> ()
 
-let init_log ppf =
-  let json_frag = ref [] in
-  if !Clflags.json then Json json_frag else Direct ppf
-
-let json_mode_printer : report_printer =
+let json_mode_printer main_rep err_rep : report_printer =
   (* let file_valid = function
      | "_none_" ->
         (* This is a dummy placeholder, but we print it anyway to please editors
@@ -853,7 +856,13 @@ let json_mode_printer : report_printer =
     let submsgs = List.map msg_to_json report.sub in
     (* Make sure we keep [num_loc_lines] updated. *)
     let main = msg_to_json report.main in
-    print_updating_num_loc_lines ppf (fun ppf () ->
+    let err_frag = `Assoc[
+          "main", main;
+          "kind", kind;
+          "submsgs",`List(submsgs);
+        ] in 
+    err_rep := err_frag :: !err_rep
+    (* print_updating_num_loc_lines ppf (fun ppf () ->
         Format.fprintf ppf "@[%a@]@." Json.print  
           (`Assoc[
               "main", main;
@@ -861,7 +870,7 @@ let json_mode_printer : report_printer =
               "submsgs",`List(submsgs);
             ])
       ) ()
-  in
+  in *)
   let pp_init_report ppf = Format.fprintf ppf "[@." in
   let pp_end_report ppf = Format.fprintf ppf "]@." in
   { batch_mode_printer with pp; pp_init_report; pp_end_report;}
@@ -896,13 +905,19 @@ let best_toplevel_printer () =
 let default_report_printer () : report_printer =
   if !input_name = "//toplevel//" then
     best_toplevel_printer ()
-  else if !Clflags.json then
-    json_mode_printer
   else
     batch_mode_printer
           
 
 let report_printer = ref default_report_printer
+
+let init_log ppf =
+  if !Clflags.json then 
+    main =ref [] in
+    report =ref [] in 
+    !default_report_printer = json_mode_printer main report
+    Json { main; report; out: ppf } 
+  else Direct ppf
 
 let print_report ppf report =
   let printer = !report_printer () in
