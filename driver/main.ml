@@ -23,7 +23,7 @@ let ppf = Format.err_formatter
 
 module Options = Main_args.Make_bytecomp_options (Main_args.Default.Main)
 
-let main () =
+let process_arguments () =
   Clflags.add_arguments __LOC__ Options.list;
   Clflags.add_arguments __LOC__
     ["-depend", Arg.Unit Makedepend.main_from_option,
@@ -32,10 +32,27 @@ let main () =
     readenv ppf Before_args;
     Clflags.parse_arguments anonymous usage;
     Compmisc.read_clflags_from_env ();
-    Location.init_report_printer ppf ();
+  with x ->
+    (* Location.init_log out; *)
+    (* Location.report_exception ppf x; *)
+    Location.report_exception ppf x; (* the type has to be `List*) 
+    (* Location.flush_log out ppf; *)
+    (* Location.end_report_printer ppf (); *)
+    exit 2
+
+let main () =
+  (* Clflags.add_arguments __LOC__ Options.list;
+  Clflags.add_arguments __LOC__
+    ["-depend", Arg.Unit Makedepend.main_from_option,
+     "<options> Compute dependencies (use 'ocamlc -depend -help' for details)"]; *)
+  try
+    (* readenv ppf Before_args; *)
+    (* Clflags.parse_arguments anonymous usage; *)
+    (* Compmisc.read_clflags_from_env (); *)
+    (* Location.init_report_printer ppf (); *)
     if !Clflags.plugin then
       fatal "-plugin is only supported up to OCaml 4.08.0";
-    let out = Location.init_log ppf in
+    (* let out = Location.init_log ppf in *)
     begin try
       Compenv.process_deferred_actions
         (ppf,
@@ -109,17 +126,16 @@ let main () =
       Warnings.check_fatal ();
     end;
   with x ->
-    
     (* Location.init_log out; *)
     (* Location.report_exception ppf x; *)
     Location.report_exception ppf x; (* the type has to be `List*) 
-    Location.flush_log out ppf;
-    Location.end_report_printer ppf ();
+    (* Location.flush_log out ppf; *)
     exit 2
 
 let () =
-
+  process_arguments();
+  let out = Location.init_log ppf in
   main ();
   Profile.print Format.std_formatter !Clflags.profile_columns;
-  Location.end_report_printer ppf ();
+  Location.flush_log out;
   exit 0

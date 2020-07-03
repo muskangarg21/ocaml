@@ -647,9 +647,6 @@ type report_printer = {
   pp : report_printer ->
     Format.formatter -> report -> unit;
 
-  pp_init_report: Format.formatter->unit;
-  pp_end_report: Format.formatter->unit;
-
   pp_report_kind : report_printer -> report ->
     Format.formatter -> report_kind -> unit;
   pp_main_loc : report_printer -> report ->
@@ -765,18 +762,16 @@ let batch_mode_printer : report_printer =
   let pp_submsg_txt _self _ ppf loc =
     pp_txt ppf loc
   in
-  let pp_init_report _ = () in
-  let pp_end_report _ = () in
   { pp; pp_report_kind; pp_main_loc; pp_main_txt;
-    pp_submsgs; pp_submsg; pp_submsg_loc; pp_submsg_txt; pp_init_report; pp_end_report;}
+    pp_submsgs; pp_submsg; pp_submsg_loc; pp_submsg_txt;}
     (* clean it up again *)
 
 module Json = Misc.Json
 
 type logs =
   { 
-    main : (string * Json.t) list ref;
-    report : Json.t list ref;
+    main_rep : Misc.Json.t list ref;
+    err_rep : Misc.Json.t list ref;
     out: Format.formatter
   }
 
@@ -787,17 +782,22 @@ type log =
 let logf key out fmt =
   match out with
   | Direct ppf -> Format.fprintf ppf fmt
-  | Json r->
-      Format.kasprintf (fun s -> r := (key, `String s) :: !r)
+  | Json log ->
+      Format.kasprintf (fun s -> log.main_rep := `Assoc[key, `String s;] :: !(log.main_rep))
         fmt
 
-let flush_log out ppf=
+let flush_log out=
   match out with 
-  | Json frag -> 
-    Format.fprintf ppf "%a@." Json.print (`Assoc !frag)
+  | Json {main_rep;err_rep;out} -> 
+    let json_log = `Assoc[
+      "main",`List !main_rep;
+      "error_report",`List !err_rep;
+    ];
+  in
+    Format.fprintf out "[%a]@." Json.print (json_log)
   | _ -> ()
 
-let json_mode_printer main_rep err_rep : report_printer =
+let json_mode_printer _ err_rep : report_printer =
   (* let file_valid = function
      | "_none_" ->
         (* This is a dummy placeholder, but we print it anyway to please editors
@@ -809,7 +809,7 @@ let json_mode_printer main_rep err_rep : report_printer =
      let line_valid line = line > 0 in
      let chars_valid ~startchar ~endchar = startchar <> -1 && endchar <> -1 in
   *)
-  let pp _ ppf report =
+  let pp _ _ report =
     let report_kind = function
       | Report_error -> `Assoc["classsification",`String("error");]
       | Report_warning w ->`Assoc["classsification",`String("warning"); "id", `String(w);]
@@ -862,6 +862,7 @@ let json_mode_printer main_rep err_rep : report_printer =
           "submsgs",`List(submsgs);
         ] in 
     err_rep := err_frag :: !err_rep
+    in
     (* print_updating_num_loc_lines ppf (fun ppf () ->
         Format.fprintf ppf "@[%a@]@." Json.print  
           (`Assoc[
@@ -871,9 +872,7 @@ let json_mode_printer main_rep err_rep : report_printer =
             ])
       ) ()
   in *)
-  let pp_init_report ppf = Format.fprintf ppf "[@." in
-  let pp_end_report ppf = Format.fprintf ppf "]@." in
-  { batch_mode_printer with pp; pp_init_report; pp_end_report;}
+  { batch_mode_printer with pp;}
 
 let terminfo_toplevel_printer (lb: lexbuf): report_printer =
   let pp self ppf err =
@@ -913,23 +912,15 @@ let report_printer = ref default_report_printer
 
 let init_log ppf =
   if !Clflags.json then 
-    main =ref [] in
-    report =ref [] in 
-    !default_report_printer = json_mode_printer main report
-    Json { main; report; out: ppf } 
+    let main_rep =ref [] in
+    let err_rep =ref [] in 
+    report_printer := (fun () -> (json_mode_printer main_rep err_rep));
+    Json { main_rep; err_rep; out=ppf } 
   else Direct ppf
 
 let print_report ppf report =
   let printer = !report_printer () in
   printer.pp printer ppf report
-
-let init_report_printer ppf () =
-  let printer = !report_printer () in
-  printer.pp_init_report ppf
-
-let end_report_printer ppf () =
-  let printer = !report_printer () in
-  printer.pp_end_report ppf
 
 (******************************************************************************)
 (* Reporting errors *)

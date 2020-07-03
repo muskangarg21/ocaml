@@ -109,8 +109,8 @@ val print_filename: formatter -> string -> unit
 val print_loc: formatter -> t -> unit
 val print_locs: formatter -> t list -> unit
 (* find a better place  *)
-val init_report_printer : Format.formatter -> unit -> unit
-val end_report_printer : Format.formatter -> unit -> unit
+(* val init_report_printer : Format.formatter -> unit -> unit
+val end_report_printer : Format.formatter -> unit -> unit *)
 (* val init_report_printer: Format.formatter -> unit -> unit 
 val end_report_printer: Format.formatter -> unit -> unit *)
 (*  find a better place *)
@@ -147,9 +147,6 @@ type report_printer = {
   pp : report_printer ->
     Format.formatter -> report -> unit;
 
-  pp_init_report: Format.formatter->unit;
-  pp_end_report: Format.formatter->unit;
-
   pp_report_kind : report_printer -> report ->
     Format.formatter -> report_kind -> unit;
   pp_main_loc : report_printer -> report ->
@@ -171,12 +168,20 @@ type report_printer = {
 *)
 
 (** {2 Report printers used in the compiler} *)
+
+type logs =
+  { 
+    main_rep : Misc.Json.t list ref;
+    err_rep : Misc.Json.t list ref;
+    out: Format.formatter
+  }
 type log =
   | Direct of Format.formatter
-  | Json of (string * Misc.Json.t) list ref
+  | Json of logs
+
 
 val logf : string -> log -> ('a, Format.formatter, unit) format -> 'a
-val flush_log : log -> Format.formatter -> unit
+val flush_log : log -> unit
 val init_log : Format.formatter -> log
 
 val batch_mode_printer: report_printer

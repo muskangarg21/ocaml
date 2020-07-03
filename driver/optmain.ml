@@ -49,7 +49,7 @@ let main () =
         (use 'ocamlopt -depend -help' for details)"];
     Clflags.parse_arguments anonymous usage;
     Compmisc.read_clflags_from_env ();
-    Location.init_report_printer ppf ();
+    (* Location.init_report_printer ppf (); *)
     if !Clflags.plugin then
       fatal "-plugin is only supported up to OCaml 4.08.0";
     begin try
@@ -132,7 +132,7 @@ let main () =
     end;
   with x ->
       Location.report_exception ppf x;
-      Location.end_report_printer ppf ();
+      (* Location.end_report_printer ppf (); *)
       exit 2
 
 let () =
