@@ -19,43 +19,25 @@ open Compenv
 let usage = "Usage: ocamlc <options> <files>\nOptions are:"
 
 (* Error messages to standard error formatter *)
-let ppf = Format.err_formatter
 
 module Options = Main_args.Make_bytecomp_options (Main_args.Default.Main)
 
-let process_arguments () =
+let process_arguments ppf () =
   Clflags.add_arguments __LOC__ Options.list;
   Clflags.add_arguments __LOC__
     ["-depend", Arg.Unit Makedepend.main_from_option,
      "<options> Compute dependencies (use 'ocamlc -depend -help' for details)"];
-  try
-    readenv ppf Before_args;
-    Clflags.parse_arguments anonymous usage;
-    Compmisc.read_clflags_from_env ();
-  with x ->
-    (* Location.init_log out; *)
-    (* Location.report_exception ppf x; *)
-    Location.report_exception ppf x; (* the type has to be `List*) 
-    (* Location.flush_log out ppf; *)
-    (* Location.end_report_printer ppf (); *)
-    exit 2
+  readenv ppf Before_args;
+  Clflags.parse_arguments anonymous usage;
+  Compmisc.read_clflags_from_env ()
 
-let main () =
-  (* Clflags.add_arguments __LOC__ Options.list;
-  Clflags.add_arguments __LOC__
-    ["-depend", Arg.Unit Makedepend.main_from_option,
-     "<options> Compute dependencies (use 'ocamlc -depend -help' for details)"]; *)
+let main log =
   try
-    (* readenv ppf Before_args; *)
-    (* Clflags.parse_arguments anonymous usage; *)
-    (* Compmisc.read_clflags_from_env (); *)
-    (* Location.init_report_printer ppf (); *)
     if !Clflags.plugin then
       fatal "-plugin is only supported up to OCaml 4.08.0";
-    (* let out = Location.init_log ppf in *)
     begin try
       Compenv.process_deferred_actions
-        (ppf,
+        (log,
          Compile.implementation,
          Compile.interface,
          ".cmo",
@@ -67,7 +49,8 @@ let main () =
         exit 2
       end
     end;
-    readenv ppf Before_link;
+    let out = Misc.Log.escape log in
+    readenv out Before_link;
     if
       List.length
         (List.filter (fun x -> !x)
@@ -99,7 +82,7 @@ let main () =
       Compmisc.init_path ();
       let extracted_output = extract_output !output_name in
       let revd = get_objfiles ~with_ocamlparam:false in
-      Compmisc.with_ppf_dump ~file_prefix:extracted_output (fun ppf_dump ->
+      Compmisc.with_ppf_dump ~file_prefix:extracted_output log (fun ppf_dump ->
         Bytepackager.package_files ~ppf_dump (Compmisc.initial_env ())
           revd (extracted_output));
       Warnings.check_fatal ();
@@ -126,16 +109,16 @@ let main () =
       Warnings.check_fatal ();
     end;
   with x ->
-    (* Location.init_log out; *)
-    (* Location.report_exception ppf x; *)
-    Location.report_exception ppf x; (* the type has to be `List*) 
-    (* Location.flush_log out ppf; *)
+    let out = Misc.Log.escape log in
+    Location.report_exception out x;
+    Misc.Log.flush_log log;
     exit 2
 
 let () =
-  process_arguments();
-  let out = Location.init_log ppf in
-  main ();
-  Profile.print Format.std_formatter !Clflags.profile_columns;
-  Location.flush_log out;
+  let ppf = Format.err_formatter in
+  process_arguments ppf ();
+  let log = Location.init_log ppf in
+  main log;
+  Profile.print log !Clflags.profile_columns;
+  Misc.Log.flush_log log;
   exit 0

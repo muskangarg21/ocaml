@@ -300,7 +300,7 @@ let display_rows ppf rows =
   in
   List.iter (loop ~indentation:"") rows
 
-let print ppf columns =
+let print log columns =
   match columns with
   | [] -> ()
   | _ :: _ ->
@@ -310,14 +310,7 @@ let print ppf columns =
        | None -> Measure.zero
      in
      let total = Measure_diff.of_diff Measure.zero (Measure.create ()) in
-     
-     Format.fprintf ppf "%a@." Misc.Json.print 
-     (`Assoc[
-          "profile",`String(Format.asprintf "%a" display_rows (rows_of_hierarchy !hierarchy total initial_measure columns));
-        ]
-     )
-     (* display_rows ppf
-       (rows_of_hierarchy !hierarchy total initial_measure columns) *)
+     Misc.Log.log_itemf "profile" log "%a@." display_rows (rows_of_hierarchy !hierarchy total initial_measure columns)
 
 let column_mapping = [
   "time", `Time;
