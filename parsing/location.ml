@@ -770,7 +770,7 @@ module Json = Misc.Json
 
 type logs =
   { 
-    main_rep : Misc.Json.t list ref;
+    main_rep : (string * Misc.Json.t) list ref;
     err_rep : Misc.Json.t list ref;
     out: Format.formatter
   }
@@ -779,25 +779,21 @@ type log =
   | Direct of Format.formatter
   | Json of logs
 
-let logf key out fmt =
-  match out with
+let logf key log fmt =
+  match log with
   | Direct ppf -> Format.fprintf ppf fmt
-  | Json log ->
-      Format.kasprintf (fun s -> log.main_rep := `Assoc[key, `String s;] :: !(log.main_rep))
-        fmt
-
-let flush_log out=
-  match out with 
+  | Json json_log->
+      Format.kasprintf (fun s -> json_log.main_rep := (key, `String s) :: !(json_log.main_rep))
+      fmt
+let flush_log log=
+  match log with 
   | Json {main_rep;err_rep;out} -> 
-    let json_log = `Assoc[
-      "main",`List !main_rep;
-      "error_report",`List !err_rep;
-    ];
+    let json_log = `Assoc ( ("error_report", `List !err_rep) :: !main_rep )
   in
     Format.fprintf out "[%a]@." Json.print (json_log)
   | _ -> ()
 
-let json_mode_printer _ err_rep : report_printer =
+let json_mode_printer err_rep () : report_printer =
   (* let file_valid = function
      | "_none_" ->
         (* This is a dummy placeholder, but we print it anyway to please editors
@@ -914,7 +910,7 @@ let init_log ppf =
   if !Clflags.json then 
     let main_rep =ref [] in
     let err_rep =ref [] in 
-    report_printer := (fun () -> (json_mode_printer main_rep err_rep));
+    report_printer := json_mode_printer err_rep;
     Json { main_rep; err_rep; out=ppf } 
   else Direct ppf
 

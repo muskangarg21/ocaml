@@ -171,7 +171,7 @@ type report_printer = {
 
 type logs =
   { 
-    main_rep : Misc.Json.t list ref;
+    main_rep : (string * Misc.Json.t) list ref;
     err_rep : Misc.Json.t list ref;
     out: Format.formatter
   }
