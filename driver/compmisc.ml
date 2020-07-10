@@ -72,7 +72,7 @@ let read_clflags_from_env () =
   set_from_env Clflags.error_style Clflags.error_style_reader;
   ()
 
-let with_ppf_dump ~file_prefix f =
+(* let with_ppf_dump ~file_prefix f =
   let ppf_dump, finally =
     if not !Clflags.dump_into_file
     then Format.err_formatter, ignore
@@ -84,4 +84,19 @@ let with_ppf_dump ~file_prefix f =
          Format.pp_print_flush ppf ();
          close_out ch)
   in
-  Misc.try_finally (fun () -> f ppf_dump) ~always:finally
+  Misc.try_finally (fun () -> f ppf_dump) ~always:finally *)
+  let with_ppf_dump ~file_prefix log f =
+    let ppf_dump, finally =
+      if not !Clflags.dump_into_file
+      then log, 
+      (fun () -> Misc.Json.flush_log log)
+      else
+         let ch = open_out (file_prefix ^ ".dump") in
+         let ppf = Format.formatter_of_out_channel ch in
+         let log_from_ppf = Location.init_log ppf  in
+         log_from_ppf,
+         (fun () ->
+          Misc.Json.flush_log log_from_ppf;
+          close_out ch)
+    in
+    Misc.try_finally (fun () -> f ppf_dump) ~always:finally

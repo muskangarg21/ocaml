@@ -169,7 +169,7 @@ type report_printer = {
 
 (** {2 Report printers used in the compiler} *)
 
-type logs =
+(* type logs =
   { 
     main_rep : (string * Misc.Json.t) list ref;
     err_rep : Misc.Json.t list ref;
@@ -181,8 +181,8 @@ type log =
 
 
 val logf : string -> log -> ('a, Format.formatter, unit) format -> 'a
-val flush_log : log -> unit
-val init_log : Format.formatter -> log
+val flush_log : log -> unit *)
+val init_log : Format.formatter -> Misc.Json.log
 
 val batch_mode_printer: report_printer
 

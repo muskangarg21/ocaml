@@ -32,13 +32,13 @@ let process_arguments ppf () =
   Clflags.parse_arguments anonymous usage;
   Compmisc.read_clflags_from_env ()
 
-let main () =
+let main out =
   try
     if !Clflags.plugin then
       fatal "-plugin is only supported up to OCaml 4.08.0";
     begin try
       Compenv.process_deferred_actions
-        (ppf,
+        (out,
          Compile.implementation,
          Compile.interface,
          ".cmo",
@@ -110,14 +110,14 @@ let main () =
     end;
   with x ->
     Location.report_exception ppf x;
-    (* Location.flush_log out ppf; *)
+    Misc.Json.flush_log out;
     exit 2
 
 let () =
   let ppf = Format.err_formatter in
   process_arguments ppf ();
   let out = Location.init_log ppf in
-  main ();
+  main out;
   Profile.print out !Clflags.profile_columns;
-  Location.flush_log out;
+  Misc.Json.flush_log out;
   exit 0

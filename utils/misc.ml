@@ -276,6 +276,31 @@ module Json = struct
           (Format.pp_print_list ~pp_sep:comma print ) l
   and keyed_element ppf (key, (element:t)) =
     Format.fprintf ppf "\"@[<2>%a\":@ %a@]" escape_string key print element
+
+  type logs =
+    { 
+      main_rep : (string * t) list ref;
+      err_rep : t list ref;
+      out: Format.formatter
+    }
+  
+  type log =
+    | Direct of Format.formatter
+    | Json of logs
+  
+  let logf key log fmt =
+    match log with
+    | Direct ppf -> Format.fprintf ppf fmt
+    | Json json_log->
+        Format.kasprintf (fun s -> json_log.main_rep := (key, `String s) :: !(json_log.main_rep))
+        fmt
+  let flush_log log=
+    match log with 
+    | Json {main_rep;err_rep;out} -> 
+      let json_log = `Assoc ( ("error_report", `List !err_rep) :: !main_rep )
+    in
+      Format.fprintf out "[%a]@." print (json_log)
+    | _ -> ()
 end
 
 
@@ -898,8 +923,10 @@ let debug_prefix_map_flags () =
         []
   end
 
-let print_if ppf flag printer arg =
-  if !flag then Format.fprintf ppf "%a@." printer arg;
+let print_if key log flag printer arg =
+  if !flag then Json.logf key log "%a@." printer arg;
+     
+  (* Format.fprintf ppf "%a@." printer arg; *)
   arg
 
 

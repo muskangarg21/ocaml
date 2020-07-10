@@ -186,6 +186,20 @@ module Json : sig
       | `List of t list
     ]
   val print : Format.formatter -> t -> unit
+
+  type logs =
+    { 
+      main_rep : (string * t) list ref;
+      err_rep : t list ref;
+      out: Format.formatter
+    }
+  type log =
+    | Direct of Format.formatter
+    | Json of logs
+  
+  
+  val logf : string -> log -> ('a, Format.formatter, unit) format -> 'a
+  val flush_log : log -> unit
 end
 
 val find_in_path: string list -> string -> string
@@ -464,7 +478,7 @@ val debug_prefix_map_flags: unit -> string list
     assembler, built from the [BUILD_PATH_PREFIX_MAP] environment variable. *)
 
 val print_if :
-  Format.formatter -> bool ref -> (Format.formatter -> 'a -> unit) -> 'a -> 'a
+  string -> Json.log -> bool ref -> (Format.formatter -> 'a -> unit) -> 'a -> 'a
 (** [print_if ppf flag fmt x] prints [x] with [fmt] on [ppf] if [b] is true. *)
 
 

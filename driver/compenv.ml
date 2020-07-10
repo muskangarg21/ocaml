@@ -555,7 +555,7 @@ let apply_config_file ppf position =
   List.iter (fun { name; value } -> read_one_param ppf position name value)
     config
 
-let readenv ppf position =
+let readenv ppf position = (* change ppf to log and related functions *)
   last_include_dirs := [];
   last_ccopts := [];
   last_ppx := [];
@@ -593,12 +593,12 @@ let process_action
   | ProcessImplementation name ->
       readenv ppf (Before_compile name);
       let opref = output_prefix name in
-      implementation ~source_file:name ~output_prefix:opref;
+      implementation log ~source_file:name ~output_prefix:opref;
       objfiles := (opref ^ ocaml_mod_ext) :: !objfiles
   | ProcessInterface name ->
       readenv ppf (Before_compile name);
       let opref = output_prefix name in
-      interface ~source_file:name ~output_prefix:opref;
+      interface log ~source_file:name ~output_prefix:opref;
       if !make_package then objfiles := (opref ^ ".cmi") :: !objfiles
   | ProcessCFile name ->
       readenv ppf (Before_compile name);

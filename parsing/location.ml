@@ -768,7 +768,7 @@ let batch_mode_printer : report_printer =
 
 module Json = Misc.Json
 
-type logs =
+(* type logs =
   { 
     main_rep : (string * Misc.Json.t) list ref;
     err_rep : Misc.Json.t list ref;
@@ -791,7 +791,7 @@ let flush_log log=
     let json_log = `Assoc ( ("error_report", `List !err_rep) :: !main_rep )
   in
     Format.fprintf out "[%a]@." Json.print (json_log)
-  | _ -> ()
+  | _ -> () *)
 
 let json_mode_printer err_rep () : report_printer =
   (* let file_valid = function
@@ -911,8 +911,8 @@ let init_log ppf =
     let main_rep =ref [] in
     let err_rep =ref [] in 
     report_printer := json_mode_printer err_rep;
-    Json { main_rep; err_rep; out=ppf } 
-  else Direct ppf
+    Json.Json { main_rep; err_rep; out=ppf } 
+  else Json.Direct ppf
 
 let print_report ppf report =
   let printer = !report_printer () in
