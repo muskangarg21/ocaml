@@ -881,9 +881,9 @@ let report_printer = ref default_report_printer
 
 let init_log ppf =
   if !Clflags.json then 
-    let err_rep1 =ref [] in 
-    report_printer := json_mode_printer err_rep1;
-    Misc.Log.Json { main_rep = ref Misc.Stdlib.String.Map.empty ; err_rep=err_rep1; out=ppf } 
+    let err_rep =ref [] in 
+    report_printer := json_mode_printer err_rep;
+    Misc.Log.Json { main_rep = ref Misc.Stdlib.String.Map.empty ; err_rep; out=ppf } 
   else Misc.Log.Direct ppf
 
 let print_report ppf report =

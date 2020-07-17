@@ -103,7 +103,8 @@ utils/profile.cmo : \
 utils/profile.cmx : \
     utils/misc.cmx \
     utils/profile.cmi
-utils/profile.cmi :
+utils/profile.cmi : \
+    utils/misc.cmi
 utils/strongly_connected_components.cmo : \
     utils/numbers.cmi \
     utils/misc.cmi \
@@ -321,7 +322,8 @@ parsing/location.cmx : \
     utils/build_path_prefix_map.cmx \
     parsing/location.cmi
 parsing/location.cmi : \
-    utils/warnings.cmi
+    utils/warnings.cmi \
+    utils/misc.cmi
 parsing/longident.cmo : \
     utils/misc.cmi \
     parsing/longident.cmi
@@ -1817,6 +1819,7 @@ bytecomp/bytepackager.cmx : \
     bytecomp/bytegen.cmx \
     bytecomp/bytepackager.cmi
 bytecomp/bytepackager.cmi : \
+    utils/misc.cmi \
     typing/ident.cmi \
     typing/env.cmi
 bytecomp/bytesections.cmo : \
@@ -5709,7 +5712,8 @@ driver/compenv.cmx : \
     utils/clflags.cmx \
     utils/ccomp.cmx \
     driver/compenv.cmi
-driver/compenv.cmi :
+driver/compenv.cmi : \
+    utils/misc.cmi
 driver/compile.cmo : \
     lambda/translmod.cmi \
     lambda/simplif.cmi \
@@ -5738,6 +5742,7 @@ driver/compile.cmx : \
     driver/compile.cmi
 driver/compile.cmi : \
     typing/typedtree.cmi \
+    utils/misc.cmi \
     bytecomp/instruct.cmi \
     typing/ident.cmi \
     driver/compile_common.cmi
@@ -5784,6 +5789,7 @@ driver/compile_common.cmx : \
 driver/compile_common.cmi : \
     typing/typedtree.cmi \
     parsing/parsetree.cmi \
+    utils/misc.cmi \
     typing/env.cmi
 driver/compmisc.cmo : \
     utils/warnings.cmi \
@@ -5812,6 +5818,7 @@ driver/compmisc.cmx : \
     utils/clflags.cmx \
     driver/compmisc.cmi
 driver/compmisc.cmi : \
+    utils/misc.cmi \
     typing/env.cmi \
     utils/clflags.cmi
 driver/errors.cmo : \
@@ -5824,6 +5831,7 @@ driver/errors.cmi :
 driver/main.cmo : \
     utils/warnings.cmi \
     utils/profile.cmi \
+    utils/misc.cmi \
     driver/makedepend.cmi \
     driver/main_args.cmi \
     parsing/location.cmi \
@@ -5839,6 +5847,7 @@ driver/main.cmo : \
 driver/main.cmx : \
     utils/warnings.cmx \
     utils/profile.cmx \
+    utils/misc.cmx \
     driver/makedepend.cmx \
     driver/main_args.cmx \
     parsing/location.cmx \
@@ -5928,6 +5937,7 @@ driver/optcompile.cmx : \
     driver/optcompile.cmi
 driver/optcompile.cmi : \
     typing/typedtree.cmi \
+    utils/misc.cmi \
     driver/compile_common.cmi \
     middle_end/backend_intf.cmi
 driver/opterrors.cmo : \

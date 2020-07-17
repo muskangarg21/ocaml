@@ -312,10 +312,9 @@ module Log = struct
   let flush_log log =
     match log with
     | Json {main_rep;err_rep;out} ->
-      let main_log = Stdlib.String.Map.bindings !main_rep in
-      let json_log = `Assoc ( ("error_report", `List !err_rep) :: main_log )
-    in
-      Format.fprintf out "[%a]@." Json.print (json_log)
+      let main_log = ref (Stdlib.String.Map.bindings !main_rep) in
+      if not (!err_rep = []) then main_log := ( ("error_report", `List !err_rep) :: !main_log );
+      Format.fprintf out "%a@." Json.print (`Assoc !main_log)
     | _ -> ()
   
   let is_direct log =
