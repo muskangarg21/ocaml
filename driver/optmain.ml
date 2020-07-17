@@ -37,23 +37,27 @@ let backend = (module Backend : Backend_intf.S)
 let usage = "Usage: ocamlopt <options> <files>\nOptions are:"
 
 module Options = Main_args.Make_optcomp_options (Main_args.Default.Optmain)
-let main () =
+
+(* let ppf = Format.err_formatter *)
+
+let process_arguments ppf () =
   native_code := true;
-  let ppf = Format.err_formatter in
+  readenv ppf Before_args;
+  Clflags.add_arguments __LOC__ (Arch.command_line_options @ Options.list);
+  Clflags.add_arguments __LOC__
+    ["-depend", Arg.Unit Makedepend.main_from_option,
+      "<options> Compute dependencies \
+      (use 'ocamlopt -depend -help' for details)"];
+  Clflags.parse_arguments anonymous usage;
+  Compmisc.read_clflags_from_env ()
+
+let main log =
   try
-    readenv ppf Before_args;
-    Clflags.add_arguments __LOC__ (Arch.command_line_options @ Options.list);
-    Clflags.add_arguments __LOC__
-      ["-depend", Arg.Unit Makedepend.main_from_option,
-       "<options> Compute dependencies \
-        (use 'ocamlopt -depend -help' for details)"];
-    Clflags.parse_arguments anonymous usage;
-    Compmisc.read_clflags_from_env ();
     if !Clflags.plugin then
       fatal "-plugin is only supported up to OCaml 4.08.0";
     begin try
       Compenv.process_deferred_actions
-        (ppf,
+        (log,
          Optcompile.implementation ~backend,
          Optcompile.interface,
          ".cmx",
@@ -65,7 +69,8 @@ let main () =
         exit 2
       end
     end;
-    readenv ppf Before_link;
+    let out = Misc.Log.escape log in
+    readenv out Before_link;
     if
       List.length (List.filter (fun x -> !x)
                      [make_package; make_archive; shared;
@@ -95,7 +100,7 @@ let main () =
     else if !make_package then begin
       Compmisc.init_path ();
       let target = extract_output !output_name in
-      Compmisc.with_ppf_dump ~file_prefix:target (fun ppf_dump ->
+      Compmisc.with_ppf_dump ~file_prefix:target log (fun ppf_dump ->
         Asmpackager.package_files ~ppf_dump (Compmisc.initial_env ())
           (get_objfiles ~with_ocamlparam:false) target ~backend);
       Warnings.check_fatal ();
@@ -103,7 +108,7 @@ let main () =
     else if !shared then begin
       Compmisc.init_path ();
       let target = extract_output !output_name in
-      Compmisc.with_ppf_dump ~file_prefix:target (fun ppf_dump ->
+      Compmisc.with_ppf_dump ~file_prefix:target log (fun ppf_dump ->
         Asmlink.link_shared ~ppf_dump
           (get_objfiles ~with_ocamlparam:false) target);
       Warnings.check_fatal ();
@@ -125,17 +130,21 @@ let main () =
           default_output !output_name
       in
       Compmisc.init_path ();
-      Compmisc.with_ppf_dump ~file_prefix:target (fun ppf_dump ->
+      Compmisc.with_ppf_dump ~file_prefix:target log (fun ppf_dump ->
         Asmlink.link ~ppf_dump (get_objfiles ~with_ocamlparam:true) target);
       Warnings.check_fatal ();
     end;
   with x ->
-      Location.report_exception ppf x;
+      let out = Misc.Log.escape log in
+      Location.report_exception out x;
+      Misc.Log.flush_log log;
       exit 2
 
 let () =
-  main ();
-  let ppf = Format.std_formatter in 
-  let out = Location.init_log ppf in
-  Profile.print out !Clflags.profile_columns;
+  let ppf = Format.err_formatter in
+  process_arguments ppf ();
+  let log = Location.init_log ppf in
+  main log;
+  Profile.print log !Clflags.profile_columns;
+  Misc.Log.flush_log log;
   exit 0

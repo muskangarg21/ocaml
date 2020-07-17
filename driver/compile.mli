@@ -16,9 +16,9 @@
 (** Bytecode compilation for .ml and .mli files. *)
 
 val interface:
-  Misc.Json.log -> source_file:string -> output_prefix:string -> unit
+  Misc.Log.t -> source_file:string -> output_prefix:string -> unit
 val implementation:
-  Misc.Json.log -> source_file:string -> output_prefix:string -> unit
+  Misc.Log.t -> source_file:string -> output_prefix:string -> unit
 
 (** {2 Internal functions} **)
 

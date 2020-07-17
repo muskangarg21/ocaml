@@ -19,7 +19,7 @@ open Compenv
 let usage = "Usage: ocamlc <options> <files>\nOptions are:"
 
 (* Error messages to standard error formatter *)
-let ppf = Format.err_formatter
+(* let ppf = Format.err_formatter *)
 
 module Options = Main_args.Make_bytecomp_options (Main_args.Default.Main)
 
@@ -32,13 +32,13 @@ let process_arguments ppf () =
   Clflags.parse_arguments anonymous usage;
   Compmisc.read_clflags_from_env ()
 
-let main out =
+let main log =
   try
     if !Clflags.plugin then
       fatal "-plugin is only supported up to OCaml 4.08.0";
     begin try
       Compenv.process_deferred_actions
-        (out,
+        (log,
          Compile.implementation,
          Compile.interface,
          ".cmo",
@@ -50,7 +50,8 @@ let main out =
         exit 2
       end
     end;
-    readenv ppf Before_link;
+    let out = Misc.Log.escape log in
+    readenv out Before_link;
     if
       List.length
         (List.filter (fun x -> !x)
@@ -82,7 +83,7 @@ let main out =
       Compmisc.init_path ();
       let extracted_output = extract_output !output_name in
       let revd = get_objfiles ~with_ocamlparam:false in
-      Compmisc.with_ppf_dump ~file_prefix:extracted_output (fun ppf_dump ->
+      Compmisc.with_ppf_dump ~file_prefix:extracted_output log (fun ppf_dump ->
         Bytepackager.package_files ~ppf_dump (Compmisc.initial_env ())
           revd (extracted_output));
       Warnings.check_fatal ();
@@ -109,15 +110,16 @@ let main out =
       Warnings.check_fatal ();
     end;
   with x ->
-    Location.report_exception ppf x;
-    Misc.Json.flush_log out;
+    let out = Misc.Log.escape log in
+    Location.report_exception out x;
+    Misc.Log.flush_log log;
     exit 2
 
 let () =
   let ppf = Format.err_formatter in
   process_arguments ppf ();
-  let out = Location.init_log ppf in
-  main out;
-  Profile.print out !Clflags.profile_columns;
-  Misc.Json.flush_log out;
+  let log = Location.init_log ppf in
+  main log;
+  Profile.print log !Clflags.profile_columns;
+  Misc.Log.flush_log log;
   exit 0

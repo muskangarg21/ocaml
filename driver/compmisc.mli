@@ -21,4 +21,4 @@ val set_from_env : 'a option ref -> 'a Clflags.env_reader -> unit
 val read_clflags_from_env : unit -> unit
 
 (* val with_ppf_dump : file_prefix:string -> (Format.formatter -> 'a) -> 'a *)
-val with_ppf_dump : file_prefix:string -> Misc.Json.log -> (Misc.Json.log -> 'a) -> 'a
+val with_ppf_dump : file_prefix:string -> Misc.Log.t -> (Misc.Log.t -> 'a) -> 'a

@@ -45,7 +45,7 @@ type log =
   | Direct of Format.formatter
   | Json of logs *)
 (* open Location *)
-val print : Misc.Json.log -> column list -> unit
+val print : Misc.Log.t -> column list -> unit
 (** Prints the selected recorded profiling information to the formatter. *)
 
 (** Command line flags *)

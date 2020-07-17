@@ -311,7 +311,7 @@ type log =
   | Direct of Format.formatter
   | Json of logs *)
 
-let print logs columns =
+let print log columns =
   match columns with
   | [] -> ()
   | _ :: _ ->
@@ -321,7 +321,7 @@ let print logs columns =
        | None -> Measure.zero
      in
      let total = Measure_diff.of_diff Measure.zero (Measure.create ()) in
-     Misc.Json.logf "profile" logs "%a@." display_rows (rows_of_hierarchy !hierarchy total initial_measure columns)
+     Misc.Log.log_itemf "profile" log "%a@." display_rows (rows_of_hierarchy !hierarchy total initial_measure columns)
      (* Format.fprintf ppf "%a@." Misc.Json.print 
      (`Assoc[
           "profile",`String(Format.asprintf "%a" display_rows (rows_of_hierarchy !hierarchy total initial_measure columns));

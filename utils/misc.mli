@@ -186,20 +186,26 @@ module Json : sig
       | `List of t list
     ]
   val print : Format.formatter -> t -> unit
+end
 
-  type logs =
+module Log : sig
+  type log =
     { 
-      main_rep : (string * t) list ref;
-      err_rep : t list ref;
+      (* main_rep : (string * Json.t) list ref; *)
+      main_rep : Json.t Stdlib.String.Map.t ref;
+      err_rep : Json.t list ref;
       out: Format.formatter
     }
-  type log =
+
+  type t =
     | Direct of Format.formatter
-    | Json of logs
-  
-  
-  val logf : string -> log -> ('a, Format.formatter, unit) format -> 'a
-  val flush_log : log -> unit
+    | Json of log
+
+  (* val logf : string -> t -> ('a, Format.formatter, unit) format -> 'a *)
+  val log_itemf : Stdlib.String.Map.key -> t -> ('a, Format.formatter, unit) format -> 'a 
+  val flush_log : t -> unit
+  val is_direct : t -> bool
+  val escape : t -> Format.formatter
 end
 
 val find_in_path: string list -> string -> string
@@ -478,7 +484,7 @@ val debug_prefix_map_flags: unit -> string list
     assembler, built from the [BUILD_PATH_PREFIX_MAP] environment variable. *)
 
 val print_if :
-  string -> Json.log -> bool ref -> (Format.formatter -> 'a -> unit) -> 'a -> 'a
+  string -> Log.t -> bool ref -> (Format.formatter -> 'a -> unit) -> 'a -> 'a
 (** [print_if ppf flag fmt x] prints [x] with [fmt] on [ppf] if [b] is true. *)
 
 

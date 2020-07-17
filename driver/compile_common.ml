@@ -22,7 +22,7 @@ type info = {
   output_prefix : string;
   env : Env.t;
   (* ppf_dump : Format.formatter; *)
-  ppf_dump : Misc.Json.log;
+  ppf_dump : Misc.Log.t;
   tool_name : string;
   native : bool;
 }

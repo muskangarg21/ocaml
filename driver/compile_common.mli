@@ -21,14 +21,14 @@ type info = {
   module_name : string;
   output_prefix : string;
   env : Env.t;
-  ppf_dump : Misc.Json.log;
+  ppf_dump : Misc.Log.t;
   tool_name : string;
   native : bool;
 }
 (** Information needed to compile a file. *)
 
 val with_info :
-  Misc.Json.log->
+  Misc.Log.t->
   native:bool ->
   tool_name:string ->
   source_file:string ->

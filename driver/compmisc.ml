@@ -89,14 +89,14 @@ let read_clflags_from_env () =
     let ppf_dump, finally =
       if not !Clflags.dump_into_file
       then log, 
-      (fun () -> Misc.Json.flush_log log)
+      (fun () -> Misc.Log.flush_log log)
       else
          let ch = open_out (file_prefix ^ ".dump") in
          let ppf = Format.formatter_of_out_channel ch in
          let log_from_ppf = Location.init_log ppf  in
          log_from_ppf,
          (fun () ->
-          Misc.Json.flush_log log_from_ppf;
+          Misc.Log.flush_log log_from_ppf;
           close_out ch)
     in
     Misc.try_finally (fun () -> f ppf_dump) ~always:finally

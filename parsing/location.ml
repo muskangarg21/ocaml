@@ -766,33 +766,6 @@ let batch_mode_printer : report_printer =
     pp_submsgs; pp_submsg; pp_submsg_loc; pp_submsg_txt;}
     (* clean it up again *)
 
-module Json = Misc.Json
-
-(* type logs =
-  { 
-    main_rep : (string * Misc.Json.t) list ref;
-    err_rep : Misc.Json.t list ref;
-    out: Format.formatter
-  }
-
-type log =
-  | Direct of Format.formatter
-  | Json of logs
-
-let logf key log fmt =
-  match log with
-  | Direct ppf -> Format.fprintf ppf fmt
-  | Json json_log->
-      Format.kasprintf (fun s -> json_log.main_rep := (key, `String s) :: !(json_log.main_rep))
-      fmt
-let flush_log log=
-  match log with 
-  | Json {main_rep;err_rep;out} -> 
-    let json_log = `Assoc ( ("error_report", `List !err_rep) :: !main_rep )
-  in
-    Format.fprintf out "[%a]@." Json.print (json_log)
-  | _ -> () *)
-
 let json_mode_printer err_rep () : report_printer =
   (* let file_valid = function
      | "_none_" ->
@@ -908,11 +881,10 @@ let report_printer = ref default_report_printer
 
 let init_log ppf =
   if !Clflags.json then 
-    let main_rep =ref [] in
-    let err_rep =ref [] in 
-    report_printer := json_mode_printer err_rep;
-    Json.Json { main_rep; err_rep; out=ppf } 
-  else Json.Direct ppf
+    let err_rep1 =ref [] in 
+    report_printer := json_mode_printer err_rep1;
+    Misc.Log.Json { main_rep = ref Misc.Stdlib.String.Map.empty ; err_rep=err_rep1; out=ppf } 
+  else Misc.Log.Direct ppf
 
 let print_report ppf report =
   let printer = !report_printer () in
