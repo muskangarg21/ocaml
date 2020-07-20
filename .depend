@@ -2090,6 +2090,7 @@ asmcomp/asmgen.cmx : \
     asmcomp/debug/available_regs.cmx \
     asmcomp/asmgen.cmi
 asmcomp/asmgen.cmi : \
+    utils/misc.cmi \
     lambda/lambda.cmi \
     asmcomp/cmm.cmi \
     middle_end/clambda.cmi \
@@ -2209,6 +2210,7 @@ asmcomp/asmpackager.cmx : \
     asmcomp/asmgen.cmx \
     asmcomp/asmpackager.cmi
 asmcomp/asmpackager.cmi : \
+    utils/misc.cmi \
     typing/env.cmi \
     middle_end/backend_intf.cmi
 asmcomp/branch_relaxation.cmo : \
@@ -3731,6 +3733,7 @@ middle_end/closure/closure.cmi : \
 middle_end/closure/closure_middle_end.cmo : \
     middle_end/printclambda.cmi \
     typing/path.cmi \
+    utils/misc.cmi \
     lambda/lambda.cmi \
     typing/ident.cmi \
     middle_end/compilenv.cmi \
@@ -3741,6 +3744,7 @@ middle_end/closure/closure_middle_end.cmo : \
 middle_end/closure/closure_middle_end.cmx : \
     middle_end/printclambda.cmx \
     typing/path.cmx \
+    utils/misc.cmx \
     lambda/lambda.cmx \
     typing/ident.cmx \
     middle_end/compilenv.cmx \
@@ -3749,6 +3753,7 @@ middle_end/closure/closure_middle_end.cmx : \
     middle_end/clambda.cmx \
     middle_end/closure/closure_middle_end.cmi
 middle_end/closure/closure_middle_end.cmi : \
+    utils/misc.cmi \
     lambda/lambda.cmi \
     middle_end/clambda.cmi \
     middle_end/backend_intf.cmi
@@ -4332,6 +4337,7 @@ middle_end/flambda/flambda_middle_end.cmx : \
     middle_end/backend_intf.cmi \
     middle_end/flambda/flambda_middle_end.cmi
 middle_end/flambda/flambda_middle_end.cmi : \
+    utils/misc.cmi \
     lambda/lambda.cmi \
     middle_end/clambda.cmi \
     middle_end/backend_intf.cmi
@@ -4397,6 +4403,7 @@ middle_end/flambda/flambda_to_clambda.cmx : \
     middle_end/flambda/flambda_to_clambda.cmi
 middle_end/flambda/flambda_to_clambda.cmi : \
     middle_end/symbol.cmi \
+    utils/misc.cmi \
     middle_end/flambda/flambda.cmi \
     middle_end/flambda/export_info.cmi \
     middle_end/clambda.cmi
@@ -4676,6 +4683,7 @@ middle_end/flambda/inline_and_simplify.cmx : \
     middle_end/flambda/inline_and_simplify.cmi
 middle_end/flambda/inline_and_simplify.cmi : \
     middle_end/variable.cmi \
+    utils/misc.cmi \
     middle_end/flambda/inline_and_simplify_aux.cmi \
     middle_end/flambda/flambda.cmi \
     middle_end/backend_intf.cmi
@@ -4735,6 +4743,7 @@ middle_end/flambda/inline_and_simplify_aux.cmi : \
     middle_end/flambda/base_types/set_of_closures_origin.cmi \
     middle_end/flambda/projection.cmi \
     middle_end/flambda/base_types/mutable_variable.cmi \
+    utils/misc.cmi \
     middle_end/flambda/inlining_stats_types.cmi \
     middle_end/flambda/inlining_cost.cmi \
     middle_end/flambda/freshening.cmi \
@@ -5032,14 +5041,17 @@ middle_end/flambda/parameter.cmi : \
     utils/identifiable.cmi \
     middle_end/compilation_unit.cmi
 middle_end/flambda/pass_wrapper.cmo : \
+    utils/misc.cmi \
     utils/int_replace_polymorphic_compare.cmi \
     utils/clflags.cmi \
     middle_end/flambda/pass_wrapper.cmi
 middle_end/flambda/pass_wrapper.cmx : \
+    utils/misc.cmx \
     utils/int_replace_polymorphic_compare.cmx \
     utils/clflags.cmx \
     middle_end/flambda/pass_wrapper.cmi
-middle_end/flambda/pass_wrapper.cmi :
+middle_end/flambda/pass_wrapper.cmi : \
+    utils/misc.cmi
 middle_end/flambda/projection.cmo : \
     middle_end/variable.cmi \
     middle_end/flambda/base_types/var_within_closure.cmi \
@@ -5098,6 +5110,7 @@ middle_end/flambda/remove_free_vars_equal_to_args.cmx : \
     middle_end/flambda/flambda.cmx \
     middle_end/flambda/remove_free_vars_equal_to_args.cmi
 middle_end/flambda/remove_free_vars_equal_to_args.cmi : \
+    utils/misc.cmi \
     middle_end/flambda/flambda.cmi
 middle_end/flambda/remove_unused_arguments.cmo : \
     middle_end/variable.cmi \
@@ -5393,6 +5406,7 @@ middle_end/flambda/un_anf.cmx : \
     middle_end/flambda/un_anf.cmi
 middle_end/flambda/un_anf.cmi : \
     middle_end/symbol.cmi \
+    utils/misc.cmi \
     middle_end/clambda.cmi
 middle_end/flambda/unbox_closures.cmo : \
     middle_end/variable.cmi \
@@ -5952,6 +5966,7 @@ driver/optmain.cmo : \
     utils/profile.cmi \
     asmcomp/proc.cmi \
     driver/optcompile.cmi \
+    utils/misc.cmi \
     driver/makedepend.cmi \
     driver/main_args.cmi \
     parsing/location.cmi \
@@ -5972,6 +5987,7 @@ driver/optmain.cmx : \
     utils/profile.cmx \
     asmcomp/proc.cmx \
     driver/optcompile.cmx \
+    utils/misc.cmx \
     driver/makedepend.cmx \
     driver/main_args.cmx \
     parsing/location.cmx \
@@ -6379,6 +6395,7 @@ toplevel/toploop.cmi : \
     typing/path.cmi \
     parsing/parsetree.cmi \
     typing/outcometree.cmi \
+    utils/misc.cmi \
     parsing/longident.cmi \
     parsing/location.cmi \
     typing/env.cmi

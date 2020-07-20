@@ -27,7 +27,7 @@ val set_paths : unit -> unit
 
 (* The interactive toplevel loop *)
 
-val loop : formatter -> unit
+val loop : Misc.Log.t-> unit
 
 (* Read and execute a script from the given file *)
 
@@ -74,8 +74,8 @@ val preprocess_phrase :
       formatter -> Parsetree.toplevel_phrase ->  Parsetree.toplevel_phrase
         (* Preprocess the given toplevel phrase using regular and ppx
            preprocessors. Return the updated phrase. *)
-val use_file : formatter -> string -> bool
-val use_output : formatter -> string -> bool
+val use_file : Misc.Log.t-> string -> bool
+val use_output : Misc.Log.t -> string -> bool
 val use_silently : formatter -> string -> bool
 val mod_use_file : formatter -> string -> bool
         (* Read and execute commands from a file.
