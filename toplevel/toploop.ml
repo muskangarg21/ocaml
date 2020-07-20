@@ -188,17 +188,6 @@ let record_backtrace () =
   if Printexc.backtrace_status ()
   then backtrace := Some (Printexc.get_backtrace ())
 
-(* type log =
-  | Direct of Format.formatter
-  | Json of (string * Misc.Json.t) list ref
-
-let Misc.Log.log_itemf key out fmt =
-  match out with
-  | Direct ppf -> fprintf ppf fmt
-  | Json r->
-      kasprintf (fun s -> r := (key, `String s) :: !r)
-        fmt *)
-
 let load_lambda log lam =
   if !Clflags.dump_rawlambda then Misc.Log.log_itemf "dump_rawlambda" log "%a@." Printlambda.lambda lam;
   let slam = Simplif.simplify_lambda lam in
@@ -379,22 +368,6 @@ let execute_phrase print_outcome log phr =
               false
       end
 
-(* let logged_execute_phrase print_outcome log phr =
-  try execute_phrase print_outcome log phr
-  with exn ->
-    Warnings.reset_fatal ();
-    raise exn *)
-
-(* let Misc.Log.flush_log out ppf=
-  match out with 
-  | Json frag -> 
-    fprintf ppf "%a@." Json.print (`Assoc !frag)
-  | _ -> () *)
-
-(* let init_log ppf =
-  let json_frag = ref [] in
-  if !Clflags.json then Json json_frag else Direct ppf *)
-
 let execute_phrase print_outcome log phr =
   try 
     execute_phrase print_outcome log phr
@@ -439,7 +412,6 @@ let use_channel log ~wrap_in_module ic name filename =
           parse_mod_use_file name lb
         else
           !parse_use_file lb);
-      (* Misc.Log.flush_log log; *)
       true
     with
     | Exit -> false
@@ -448,7 +420,6 @@ let use_channel log ~wrap_in_module ic name filename =
 
 let use_output log command =
   let out = Misc.Log.escape log in
-  (* let log = Location.init_log ppf in *)
   let fn = Filename.temp_file "ocaml" "_toploop.ml" in
   Misc.try_finally ~always:(fun () ->
       try Sys.remove fn with Sys_error _ -> ())
@@ -577,16 +548,15 @@ let find_ocamlinit () =
   | Some _ as v -> v
   | None -> exists_in_dir (home_dir ()) ocamlinit
 
-let load_ocamlinit log =
-  let out = Misc.Log.escape log in
+let load_ocamlinit ppf =
   if !Clflags.noinit then ()
   else match !Clflags.init_file with
-  | Some f -> if Sys.file_exists f then ignore (use_silently out f)
-              else fprintf out "Init file not found: \"%s\".@." f
+  | Some f -> if Sys.file_exists f then ignore (use_silently ppf f)
+              else fprintf ppf "Init file not found: \"%s\".@." f
   | None ->
       match find_ocamlinit () with
       | None -> ()
-      | Some file -> ignore (use_silently out file)
+      | Some file -> ignore (use_silently ppf file)
 ;;
 
 let set_paths () =
@@ -632,7 +602,7 @@ let loop log =
   Location.input_phrase_buffer := Some phrase_buffer;
   Sys.catch_break true;
   run_hooks After_setup;
-  load_ocamlinit log;
+  load_ocamlinit out;
   while true do
     let snap = Btype.snapshot () in
     try
