@@ -189,12 +189,12 @@ let record_backtrace () =
   then backtrace := Some (Printexc.get_backtrace ())
 
 let load_lambda log lam =
-  if !Clflags.dump_rawlambda then Misc.Log.log_itemf "dump_rawlambda" log "%a@." Printlambda.lambda lam;
+  if !Clflags.dump_rawlambda then Log.logf "dump_rawlambda" log "%a@." Printlambda.lambda lam;
   let slam = Simplif.simplify_lambda lam in
-  if !Clflags.dump_lambda then Misc.Log.log_itemf "dump_lambda" log "%a@." Printlambda.lambda slam;
+  if !Clflags.dump_lambda then Log.logf "dump_lambda" log "%a@." Printlambda.lambda slam;
   let (init_code, fun_code) = Bytegen.compile_phrase slam in
   if !Clflags.dump_instr then
-    Misc.Log.log_itemf "dump_instr" log "%a%a@."
+    Log.logf "dump_instr" log "%a%a@."
     Printinstr.instrlist init_code
     Printinstr.instrlist fun_code;
   let (code, reloc, events) =
@@ -273,7 +273,7 @@ let execute_phrase print_outcome log phr =
       let oldenv = !toplevel_env in
       Typecore.reset_delayed_checks ();
       let (str, sg, sn, newenv) = Typemod.type_toplevel_phrase oldenv sstr in
-      if (!Clflags.dump_typedtree) then Misc.Log.log_itemf "dumped_typed_tree" log "%a@." Printtyped.implementation str;
+      if (!Clflags.dump_typedtree) then Log.logf "dumped_typed_tree" log "%a@." Printtyped.implementation str;
       let sg' = Typemod.Signature_names.simplify newenv sn sg in
       ignore (Includemod.signatures oldenv sg sg');
       Typecore.force_delayed_checks ();
@@ -314,13 +314,13 @@ let execute_phrase print_outcome log phr =
               in
               Ophr_exception (exn, outv)
         in
-        Misc.Log.log_itemf "phrase" log "%a@." !print_out_phrase out_phr;
+        Log.logf "phrase" log "%a@." !print_out_phrase out_phr;
         if Printexc.backtrace_status ()
         then begin
           match !backtrace with
             | None -> ()
             | Some b ->
-                Misc.Log.log_itemf "backtrace" log "%a@." pp_print_string b;
+                Log.logf "backtrace" log "%a@." pp_print_string b;
                 backtrace := None;
         end;
         begin match out_phr with
@@ -339,7 +339,7 @@ let execute_phrase print_outcome log phr =
       | None ->
           let directives =
             Hashtbl.fold (fun dir _ acc -> dir::acc) directive_table [] in
-          Misc.Log.log_itemf "Unknown dir" log "Unknown directive `%s'. %a @." dir_name
+          Log.logf "Unknown dir" log "Unknown directive `%s'. %a @." dir_name
            Misc.did_you_mean (fun () -> Misc.spellcheck directives dir_name);
 
           false
@@ -351,26 +351,29 @@ let execute_phrase print_outcome log phr =
              begin match Int_literal_converter.int n with
              | n -> f n; true
              | exception _ ->
-               Misc.Log.log_itemf "integer range exceed" log "Integer literal exceeds the range of \
+               Log.logf "integer range exceed" log "Integer literal exceeds the range of \
                             representable integers for directive `%s'.@."
                        dir_name;
                false
              end
           | Directive_int _, Some {pdira_desc = Pdir_int (_, Some _)} ->
-              Misc.Log.log_itemf "wrong literal" log "Wrong integer literal for directive `%s'.@."
+              Log.logf "wrong literal" log "Wrong integer literal for directive `%s'.@."
                 dir_name;
               false
           | Directive_ident f, Some {pdira_desc = Pdir_ident lid} -> f lid; true
           | Directive_bool f, Some {pdira_desc = Pdir_bool b} -> f b; true
           | _ ->
-              Misc.Log.log_itemf "wrong type argument" log "Wrong type of argument for directive `%s'.@."
+              Log.logf "wrong type argument" log "Wrong type of argument for directive `%s'.@."
                 dir_name;
               false
       end
 
-let execute_phrase print_outcome log phr =
-  try 
-    execute_phrase print_outcome log phr
+let execute_phrase print_outcome ppf phr =
+  try
+    let log = Location.init_log ppf in
+    let ans = execute_phrase print_outcome log phr in
+    Log.flush_log log;
+    ans
   with exn ->
     Warnings.reset_fatal ();
     raise exn
@@ -389,12 +392,17 @@ let preprocess_phrase log phr =
         Ptop_def str
     | phr -> phr
   in
-  if !Clflags.dump_parsetree then Misc.Log.log_itemf "dump_lambda" log "%a@." Printast.top_phrase phr;
-  if !Clflags.dump_source then Misc.Log.log_itemf "dump_source" log "%a@." Pprintast.top_phrase phr;
+  if !Clflags.dump_parsetree then Log.logf "dump_parsetree" log "%a@." Printast.top_phrase phr;
+  if !Clflags.dump_source then Log.logf "dump_source" log "%a@." Pprintast.top_phrase phr;
   phr
 
-let use_channel log ~wrap_in_module ic name filename =
-  let out = Misc.Log.escape log in
+let preprocess_phrase ppf phr =
+  let log = Location.init_log ppf in
+  let ans = preprocess_phrase log phr in
+  Log.flush_log log;
+  ans
+
+let use_channel ppf ~wrap_in_module ic name filename =
   let lb = Lexing.from_channel ic in
   Warnings.reset_fatal ();
   Location.init lb filename;
@@ -406,8 +414,8 @@ let use_channel log ~wrap_in_module ic name filename =
     try
       List.iter
         (fun ph ->
-          let ph = preprocess_phrase log ph in
-          if not (execute_phrase !use_print_results log ph) then raise Exit)
+          let ph = preprocess_phrase ppf ph in
+          if not (execute_phrase !use_print_results ppf ph) then raise Exit)
         (if wrap_in_module then
           parse_mod_use_file name lb
         else
@@ -415,11 +423,10 @@ let use_channel log ~wrap_in_module ic name filename =
       true
     with
     | Exit -> false
-    | Sys.Break -> fprintf out "Interrupted.@."; false
-    | x -> Location.report_exception out x; false)
+    | Sys.Break -> fprintf ppf "Interrupted.@."; false
+    | x -> Location.report_exception ppf x; false)
 
-let use_output log command =
-  let out = Misc.Log.escape log in
+let use_output ppf command =
   let fn = Filename.temp_file "ocaml" "_toploop.ml" in
   Misc.try_finally ~always:(fun () ->
       try Sys.remove fn with Sys_error _ -> ())
@@ -433,24 +440,23 @@ let use_output log command =
          let ic = open_in_bin fn in
          Misc.try_finally ~always:(fun () -> close_in ic)
            (fun () ->
-              use_channel log ~wrap_in_module:false ic "" "(command-output)")
+              use_channel ppf ~wrap_in_module:false ic "" "(command-output)")
        | n ->
-         fprintf out "Command exited with code %d.@." n;
+         fprintf ppf "Command exited with code %d.@." n;
          false)
 
-let use_file log ~wrap_in_module name =
-  let out = Misc.Log.escape log in
+let use_file ppf ~wrap_in_module name =
   match name with
   | "" ->
-    use_channel log ~wrap_in_module stdin name "(stdin)"
+    use_channel ppf ~wrap_in_module stdin name "(stdin)"
   | _ ->
     match Load_path.find name with
     | filename ->
       let ic = open_in_bin filename in
       Misc.try_finally ~always:(fun () -> close_in ic)
-        (fun () -> use_channel log ~wrap_in_module ic name filename)
+        (fun () -> use_channel ppf ~wrap_in_module ic name filename)
     | exception Not_found ->
-      fprintf out "Cannot find file %s.@." name;
+      fprintf ppf "Cannot find file %s.@." name;
       false
 
 let mod_use_file ppf name =
@@ -584,16 +590,15 @@ let initialize_toplevel_env () =
 
 exception PPerror
 
-let loop log =
-  let out = Misc.Log.escape log in
+let loop ppf =
   Clflags.debug := true;
-  Location.formatter_for_warnings := out;
+  Location.formatter_for_warnings := ppf;
   if not !Clflags.noversion then
-    fprintf out "        OCaml version %s@.@." Config.version;
+    fprintf ppf "        OCaml version %s@.@." Config.version;
   begin
     try initialize_toplevel_env ()
     with Env.Error _ | Typetexp.Error _ as exn ->
-      Location.report_exception out exn; exit 2
+      Location.report_exception ppf exn; exit 2
   end;
   let lb = Lexing.from_function refill_lexbuf in
   Location.init lb "//toplevel//";
@@ -602,7 +607,7 @@ let loop log =
   Location.input_phrase_buffer := Some phrase_buffer;
   Sys.catch_break true;
   run_hooks After_setup;
-  load_ocamlinit out;
+  load_ocamlinit ppf;
   while true do
     let snap = Btype.snapshot () in
     try
@@ -613,14 +618,14 @@ let loop log =
       Warnings.reset_fatal ();
       first_line := true;
       let phr = try !parse_toplevel_phrase lb with Exit -> raise PPerror in
-      let phr = preprocess_phrase log phr in
+      let phr = preprocess_phrase ppf phr in
       Env.reset_cache_toplevel ();
-      ignore(execute_phrase true log phr)
+      ignore(execute_phrase true ppf phr)
     with
     | End_of_file -> exit 0
-    | Sys.Break -> fprintf out "Interrupted.@."; Btype.backtrack snap
+    | Sys.Break -> fprintf ppf "Interrupted.@."; Btype.backtrack snap
     | PPerror -> ()
-    | x -> Location.report_exception out x; Btype.backtrack snap
+    | x -> Location.report_exception ppf x; Btype.backtrack snap
   done
 
 external caml_sys_modify_argv : string array -> unit =

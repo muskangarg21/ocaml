@@ -6395,7 +6395,6 @@ toplevel/toploop.cmi : \
     typing/path.cmi \
     parsing/parsetree.cmi \
     typing/outcometree.cmi \
-    utils/misc.cmi \
     parsing/longident.cmi \
     parsing/location.cmi \
     typing/env.cmi

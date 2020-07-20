@@ -118,6 +118,4 @@ let main () =
   Compmisc.read_clflags_from_env ();
   if not (prepare ppf) then exit 2;
   Compmisc.init_path ();
-  let log = Location.init_log ppf in
-  Toploop.loop log;
-  Misc.Log.flush_log log
+  Toploop.loop Format.std_formatter

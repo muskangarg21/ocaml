@@ -293,18 +293,16 @@ module Log = struct
     | Direct of Format.formatter
     | Json of log
 
-  (* let logf key log fmt =
+  let logf key log fmt =
     match log with
     | Direct ppf -> Format.fprintf ppf fmt
     | Json json_log->
-        Format.kasprintf (fun s -> json_log.main_rep := (key, `String s) :: !(json_log.main_rep))
-        fmt *)
+        Format.kasprintf (fun s -> json_log.main_rep := Stdlib.String.Map.add key (`String s) !(json_log.main_rep)) fmt
+
   let log_itemf key log fmt  =
     match log with 
     | Direct ppf -> Format.fprintf ppf fmt
     | Json json_log-> match Stdlib.String.Map.find key !(json_log.main_rep) with
-        (* | `List x ->
-              Format.kasprintf (fun s -> json_log.main_rep := Stdlib.String.Map.add  key `List (`String s ) !json_log.main_rep) fmt *)
         | `String x -> Format.kasprintf (fun s -> json_log.main_rep := Stdlib.String.Map.add key (`String (x^s)) !(json_log.main_rep)) fmt
         | exception Not_found | _ ->
               Format.kasprintf (fun s -> json_log.main_rep := Stdlib.String.Map.add key (`String s) !(json_log.main_rep)) fmt

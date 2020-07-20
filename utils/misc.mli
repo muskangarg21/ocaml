@@ -201,7 +201,7 @@ module Log : sig
     | Direct of Format.formatter
     | Json of log
 
-  (* val logf : string -> t -> ('a, Format.formatter, unit) format -> 'a *)
+  val logf : Stdlib.String.Map.key -> t -> ('a, Format.formatter, unit) format -> 'a 
   val log_itemf : Stdlib.String.Map.key -> t -> ('a, Format.formatter, unit) format -> 'a 
   val flush_log : t -> unit
   val is_direct : t -> bool
