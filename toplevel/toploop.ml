@@ -368,16 +368,6 @@ let execute_phrase print_outcome log phr =
               false
       end
 
-let execute_phrase print_outcome ppf phr =
-  try
-    let log = Location.init_log ppf in
-    let ans = execute_phrase print_outcome log phr in
-    Log.flush_log log;
-    ans
-  with exn ->
-    Warnings.reset_fatal ();
-    raise exn
-
 (* Read and execute commands from a file, or from stdin if [name] is "". *)
 
 let use_print_results = ref true
@@ -396,12 +386,6 @@ let preprocess_phrase log phr =
   if !Clflags.dump_source then Log.logf "dump_source" log "%a@." Pprintast.top_phrase phr;
   phr
 
-let preprocess_phrase ppf phr =
-  let log = Location.init_log ppf in
-  let ans = preprocess_phrase log phr in
-  Log.flush_log log;
-  ans
-
 let use_channel ppf ~wrap_in_module ic name filename =
   let lb = Lexing.from_channel ic in
   Warnings.reset_fatal ();
@@ -411,20 +395,22 @@ let use_channel ppf ~wrap_in_module ic name filename =
   protect_refs [ R (Location.input_name, filename);
                  R (Location.input_lexbuf, Some lb); ]
     (fun () ->
+    let log = Location.init_log ppf in
     try
       List.iter
         (fun ph ->
-          let ph = preprocess_phrase ppf ph in
-          if not (execute_phrase !use_print_results ppf ph) then raise Exit)
+          let ph = preprocess_phrase log ph in
+          if not (execute_phrase !use_print_results log ph) then raise Exit)
         (if wrap_in_module then
           parse_mod_use_file name lb
         else
           !parse_use_file lb);
+      Misc.Log.flush_log log;
       true
     with
     | Exit -> false
     | Sys.Break -> fprintf ppf "Interrupted.@."; false
-    | x -> Location.report_exception ppf x; false)
+    | x -> Location.report_exception ppf x; Misc.Log.flush_log log; false)
 
 let use_output ppf command =
   let fn = Filename.temp_file "ocaml" "_toploop.ml" in
@@ -608,6 +594,7 @@ let loop ppf =
   Sys.catch_break true;
   run_hooks After_setup;
   load_ocamlinit ppf;
+  let log = Location.init_log ppf in
   while true do
     let snap = Btype.snapshot () in
     try
@@ -618,14 +605,15 @@ let loop ppf =
       Warnings.reset_fatal ();
       first_line := true;
       let phr = try !parse_toplevel_phrase lb with Exit -> raise PPerror in
-      let phr = preprocess_phrase ppf phr in
+      let phr = preprocess_phrase log phr in
       Env.reset_cache_toplevel ();
-      ignore(execute_phrase true ppf phr)
+      ignore(execute_phrase true log phr);
+      Misc.Log.flush_log log
     with
     | End_of_file -> exit 0
     | Sys.Break -> fprintf ppf "Interrupted.@."; Btype.backtrack snap
     | PPerror -> ()
-    | x -> Location.report_exception ppf x; Btype.backtrack snap
+    | x -> Location.report_exception ppf x; Misc.Log.flush_log log; Btype.backtrack snap
   done
 
 external caml_sys_modify_argv : string array -> unit =
@@ -655,3 +643,19 @@ let run_script ppf name args =
     else name
   in
   use_silently ppf explicit_name
+
+let preprocess_phrase ppf phr =
+  let log = Location.init_log ppf in
+  let ans = preprocess_phrase log phr in
+  Log.flush_log log;
+  ans
+
+let execute_phrase print_outcome ppf phr =
+  try
+    let log = Location.init_log ppf in
+    let ans = execute_phrase print_outcome log phr in
+    Log.flush_log log;
+    ans
+  with exn ->
+    Warnings.reset_fatal ();
+    raise exn
