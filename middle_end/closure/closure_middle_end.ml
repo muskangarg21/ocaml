@@ -26,12 +26,9 @@ let raw_clambda_dump_if log
           Printclambda.structured_constant definition)
       structured_constants in
   if (Misc.Log.is_direct log) then
-    if !Clflags.dump_rawclambda || !Clflags.dump_clambda then
-    begin
-      let ppf = Misc.Log.escape log in
-      printer ppf ();
-      if !Clflags.dump_cmm then Format.fprintf ppf "@.cmm:@.";
-    end
+    let ppf = Misc.Log.escape log in
+    if !Clflags.dump_rawclambda || !Clflags.dump_clambda then printer ppf ();
+    if !Clflags.dump_cmm then Format.fprintf ppf "@.cmm:@.";
   else begin
     if !Clflags.dump_rawclambda then Misc.Log.log_itemf "dump_rawclambda" log "%a@." printer ();
     if !Clflags.dump_clambda then Misc.Log.log_itemf "dump_clambda" log "%a@." printer ();

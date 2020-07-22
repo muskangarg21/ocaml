@@ -274,7 +274,7 @@ let execute_phrase print_outcome log phr =
         let oldenv = !toplevel_env in
         Typecore.reset_delayed_checks ();
         let (str, sg, sn, newenv) = Typemod.type_toplevel_phrase oldenv sstr in
-        if (!Clflags.dump_typedtree) then Log.logf "dumped_typed_tree" log "%a@." Printtyped.implementation str;
+        if !Clflags.dump_typedtree then Log.logf "dumped_typed_tree" log "%a" Printtyped.implementation str;
         let sg' = Typemod.Signature_names.simplify newenv sn sg in
         ignore (Includemod.signatures oldenv sg sg');
         Typecore.force_delayed_checks ();
@@ -315,13 +315,13 @@ let execute_phrase print_outcome log phr =
                 in
                 Ophr_exception (exn, outv)
           in
-          Log.logf "phrase" log "%a@." !print_out_phrase out_phr;
+          Log.logf "phrase" log "%a" !print_out_phrase out_phr;
           if Printexc.backtrace_status ()
           then begin
             match !backtrace with
               | None -> ()
               | Some b ->
-                  Log.logf "backtrace" log "%a@." pp_print_string b;
+                  Log.logf "backtrace" log "%a@?" pp_print_string b;
                   backtrace := None;
           end;
           begin match out_phr with
@@ -387,8 +387,8 @@ let preprocess_phrase log phr =
         Ptop_def str
     | phr -> phr
   in
-  if !Clflags.dump_parsetree then Log.logf "dump_parsetree" log "%a@." Printast.top_phrase phr;
-  if !Clflags.dump_source then Log.logf "dump_source" log "%a@." Pprintast.top_phrase phr;
+  if !Clflags.dump_parsetree then Log.logf "dump_parsetree" log "%a" Printast.top_phrase phr;
+  if !Clflags.dump_source then Log.logf "dump_source" log "%a" Pprintast.top_phrase phr;
   phr
 
 let use_channel ppf ~wrap_in_module ic name filename =
