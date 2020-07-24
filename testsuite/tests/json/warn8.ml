@@ -1,5 +1,4 @@
 (* TEST
-   * expect
    flags = "-json"
 *)
 
