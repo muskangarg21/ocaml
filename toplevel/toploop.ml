@@ -329,6 +329,7 @@ let execute_phrase print_outcome log phr =
           | Ophr_exception _ -> false
           end
         with x ->
+          Misc.Log.flush_log log;
           toplevel_env := oldenv; raise x
         end
     | Ptop_dir {pdir_name = {Location.txt = dir_name}; pdir_arg } ->
