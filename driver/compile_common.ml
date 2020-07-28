@@ -21,7 +21,6 @@ type info = {
   module_name : string;
   output_prefix : string;
   env : Env.t;
-  (* ppf_dump : Format.formatter; *)
   ppf_dump : Misc.Log.t;
   tool_name : string;
   native : bool;
@@ -38,7 +37,6 @@ let with_info log ~native ~tool_name ~source_file ~output_prefix ~dump_ext k =
   Env.set_unit_name module_name;
   let env = Compmisc.initial_env() in
   let dump_file = String.concat "." [output_prefix; dump_ext] in
-
   Compmisc.with_ppf_dump ~file_prefix:dump_file log @@ fun ppf_dump ->
   k {
     module_name;
@@ -54,7 +52,7 @@ let with_info log ~native ~tool_name ~source_file ~output_prefix ~dump_ext k =
 
 let parse_intf i =
   Pparse.parse_interface ~tool_name:i.tool_name i.source_file
-  |> print_if "parsetree" i.ppf_dump Clflags.dump_parsetree Printast.interface 
+  |> print_if "parsetree" i.ppf_dump Clflags.dump_parsetree Printast.interface
   |> print_if "source" i.ppf_dump Clflags.dump_source Pprintast.signature
 
 let typecheck_intf info ast =

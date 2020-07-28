@@ -38,8 +38,6 @@ let usage = "Usage: ocamlopt <options> <files>\nOptions are:"
 
 module Options = Main_args.Make_optcomp_options (Main_args.Default.Optmain)
 
-(* let ppf = Format.err_formatter *)
-
 let process_arguments ppf () =
   native_code := true;
   readenv ppf Before_args;

@@ -31,7 +31,6 @@ let liveness phrase = Liveness.fundecl phrase; phrase
 
 let dump_if key log flag message phrase =
   if !flag then Misc.Log.log_itemf key log "%a@." (Printmach.phase message) phrase
-  (* if !flag then Printmach.phase message ppf phrase *)
 
 let pass_dump_if key log flag message phrase =
   dump_if key log flag message phrase; phrase

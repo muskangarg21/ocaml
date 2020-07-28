@@ -108,12 +108,6 @@ val print_filename: formatter -> string -> unit
 
 val print_loc: formatter -> t -> unit
 val print_locs: formatter -> t list -> unit
-(* find a better place  *)
-(* val init_report_printer : Format.formatter -> unit -> unit
-val end_report_printer : Format.formatter -> unit -> unit *)
-(* val init_report_printer: Format.formatter -> unit -> unit 
-val end_report_printer: Format.formatter -> unit -> unit *)
-(*  find a better place *)
 
 (** {1 Toplevel-specific location highlighting} *)
 

@@ -19,7 +19,6 @@ open Compenv
 let usage = "Usage: ocamlc <options> <files>\nOptions are:"
 
 (* Error messages to standard error formatter *)
-(* let ppf = Format.err_formatter *)
 
 module Options = Main_args.Make_bytecomp_options (Main_args.Default.Main)
 

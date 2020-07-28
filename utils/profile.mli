@@ -33,18 +33,6 @@ val record : ?accumulate:bool -> string -> ('a -> 'b) -> 'a -> 'b
 
 type column = [ `Time | `Alloc | `Top_heap | `Abs_top_heap ]
 
-(* val print : Format.formatter -> column list -> unit *)
-(* type logs =
-  { 
-    main_rep : (string * Misc.Json.t) list ref;
-    err_rep : Misc.Json.t list ref;
-    out: Format.formatter
-  }
-
-type log =
-  | Direct of Format.formatter
-  | Json of logs *)
-(* open Location *)
 val print : Misc.Log.t -> column list -> unit
 (** Prints the selected recorded profiling information to the formatter. *)
 

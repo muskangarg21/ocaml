@@ -77,16 +77,16 @@ let with_ppf_dump ~file_prefix log f =
     if not !Clflags.dump_into_file
     then log, ignore
     else
-        let ch = open_out (file_prefix ^ ".dump") in
-        let ppf = Format.formatter_of_out_channel ch in
-        let init_log ppf =
+      let ch = open_out (file_prefix ^ ".dump") in
+      let ppf = Format.formatter_of_out_channel ch in
+      let init_log ppf =
         if !Clflags.json then
-          Misc.Log.Json { main_rep = ref Misc.Stdlib.String.Map.empty ; err_rep = ref []; out=ppf } 
+          Misc.Log.Json { main_rep = ref Misc.Stdlib.String.Map.empty ; err_rep = ref []; out = ppf } 
         else Misc.Log.Direct ppf
-        in
-        let log_from_ppf = init_log ppf in
-        log_from_ppf,
-        (fun () ->
+      in
+      let log_from_ppf = init_log ppf in
+      log_from_ppf,
+      (fun () ->
         Misc.Log.flush_log log_from_ppf;
         close_out ch)
   in

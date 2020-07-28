@@ -282,8 +282,7 @@ end
 
 module Log = struct
   type log =
-    { 
-      (* main_rep : (string * Json.t) list ref; *)
+    {
       main_rep : Json.t Stdlib.String.Map.t ref;
       err_rep : Json.t list ref;
       out: Format.formatter
@@ -303,7 +302,9 @@ module Log = struct
     match log with 
     | Direct ppf -> Format.fprintf ppf fmt
     | Json json_log-> match Stdlib.String.Map.find key !(json_log.main_rep) with
-        | `String x -> Format.kasprintf (fun s -> json_log.main_rep := Stdlib.String.Map.add key (`String (x^s)) !(json_log.main_rep)) fmt
+        | `List x ->
+              Format.kasprintf (fun s -> json_log.main_rep := Stdlib.String.Map.add key (`List ((`String s)::x)) !(json_log.main_rep)) fmt
+        | `String x -> Format.kasprintf (fun s -> json_log.main_rep := Stdlib.String.Map.add key (`List ((`String x)::(`String s)::[])) !(json_log.main_rep)) fmt
         | exception Not_found | _ ->
               Format.kasprintf (fun s -> json_log.main_rep := Stdlib.String.Map.add key (`String s) !(json_log.main_rep)) fmt
 
@@ -946,9 +947,7 @@ let debug_prefix_map_flags () =
   end
 
 let print_if key log flag printer arg =
-  if !flag then Log.log_itemf key log "%a@." printer arg;  (* this is the reason for i.ppf_dump to be a log*)
-     
-  (* Format.fprintf ppf "%a@." printer arg; *)
+  if !flag then Log.log_itemf key log "%a@." printer arg;
   arg
 
 

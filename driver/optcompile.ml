@@ -21,7 +21,7 @@ open Compile_common
 let tool_name = "ocamlopt"
 
 let with_info log =
-  Compile_common.with_info log ~native:true ~tool_name  (* ASK OCTACHRON  make changes in this file ? *)
+  Compile_common.with_info log ~native:true ~tool_name
 
 let interface log ~source_file ~output_prefix =
   with_info log ~source_file ~output_prefix ~dump_ext:"cmi" @@ fun info ->

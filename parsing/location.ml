@@ -696,7 +696,7 @@ let error_style () =
   match !Clflags.error_style with
   | Some setting -> setting
   | None -> Misc.Error_style.default_setting
-  
+
 let batch_mode_printer : report_printer =
   let pp_loc _self report ppf loc =
     let tag = match report.kind with
@@ -714,7 +714,7 @@ let batch_mode_printer : report_printer =
               ~get_lines:lines_around_from_current_input
               tag [loc]
       | Misc.Error_style.Short ->
-        ()
+          ()
     in
     Format.fprintf ppf "@[<v>%a:@ %a@]" print_loc loc highlight loc
   in
@@ -763,21 +763,9 @@ let batch_mode_printer : report_printer =
     pp_txt ppf loc
   in
   { pp; pp_report_kind; pp_main_loc; pp_main_txt;
-    pp_submsgs; pp_submsg; pp_submsg_loc; pp_submsg_txt;}
-    (* clean it up again *)
+    pp_submsgs; pp_submsg; pp_submsg_loc; pp_submsg_txt}
 
 let json_mode_printer err_rep () : report_printer =
-  (* let file_valid = function
-     | "_none_" ->
-        (* This is a dummy placeholder, but we print it anyway to please editors
-           that parse locations in error messages (e.g. Emacs). *)
-        true
-     | "" | "//toplevel//" -> false
-     | _ -> true
-     in
-     let line_valid line = line > 0 in
-     let chars_valid ~startchar ~endchar = startchar <> -1 && endchar <> -1 in
-  *)
   let pp _ _ report =
     let report_kind = function
       | Report_error -> `Assoc["classsification",`String("error");]
@@ -792,11 +780,8 @@ let json_mode_printer err_rep () : report_printer =
       report_kind report.kind;
     in
     let content txt = `String(Format.asprintf "@[%t@]" txt) in
-    (* let msg_to_json report_json = *)
     let loc_to_json loc =
       let file =
-        (* According to the comment in location.mli, if [pos_fname] is "", we must
-           use [!input_name]. *)
         if loc.loc_start.pos_fname = "" then !input_name
         else loc.loc_start.pos_fname
       in
@@ -811,9 +796,9 @@ let json_mode_printer err_rep () : report_printer =
         ];
       in
       `Assoc[
-      "file", `String(file);
-      "line", start_end startline endline ;
-      "character", start_end startchar endchar ;
+        "file", `String(file);
+        "line", start_end startline endline ;
+        "character", start_end startchar endchar ;
       ]
     in
     let msg_to_json {loc;txt} =
@@ -823,24 +808,14 @@ let json_mode_printer err_rep () : report_printer =
       ];
     in
     let submsgs = List.map msg_to_json report.sub in
-    (* Make sure we keep [num_loc_lines] updated. *)
     let main = msg_to_json report.main in
     let err_frag = `Assoc[
-          "main", main;
-          "kind", kind;
-          "submsgs",`List(submsgs);
-        ] in 
+        "main", main;
+        "kind", kind;
+        "submsgs",`List(submsgs);
+      ] in 
     err_rep := err_frag :: !err_rep
-    in
-    (* print_updating_num_loc_lines ppf (fun ppf () ->
-        Format.fprintf ppf "@[%a@]@." Json.print  
-          (`Assoc[
-              "main", main;
-              "kind", kind;
-              "submsgs",`List(submsgs);
-            ])
-      ) ()
-  in *)
+  in
   { batch_mode_printer with pp;}
 
 let terminfo_toplevel_printer (lb: lexbuf): report_printer =
@@ -875,7 +850,6 @@ let default_report_printer () : report_printer =
     best_toplevel_printer ()
   else
     batch_mode_printer
-          
 
 let report_printer = ref default_report_printer
 

@@ -31,7 +31,5 @@ let with_dump ~ppf_dump ~pass_name ~f ~input ~print_input ~print_output =
     if dump then begin
       Misc.Log.log_itemf "before_flambda_middle_end_passes" ppf_dump "Before %s:@ %a@.@." pass_name print_input input;
       Misc.Log.log_itemf "after_flambda_middle_end_passes" ppf_dump "After %s:@ %a@.@." pass_name print_output result;
-      (* Format.fprintf ppf_dump "Before %s:@ %a@.@." pass_name print_input input; *)
-      (* Format.fprintf ppf_dump "After %s:@ %a@.@." pass_name print_output result; *)
     end;
     Some result
