@@ -1,6 +1,10 @@
 (* TEST
    * toplevel
-   flags = "-json -dparsetree "
+   flags = "-json -dparsetree -dtypedtree -dsource -drawlambda -dlambda -dinstr"
 *)
 
-let kas a = match a with _ -> true;;
+Printexc.record_backtrace true;;
+
+let f () = raise Not_found;;
+let g () = f ();;
+g ();;

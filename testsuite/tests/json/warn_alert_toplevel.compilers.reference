@@ -1,8 +1,25 @@
 {"error_report":
     [{"main":
          {"location":
-             {"file": "warn8.ml",
+             {"file": "//toplevel//",
               "line": {"start": "6", "end": "6"},
+              "character": {"start": "4", "end": "8"}
+             },
+          "content":
+             "this pattern-matching is not exhaustive.\nHere is an example of a case that is not matched:\nSome _"
+         },
+      "kind": {"classsification": "warning", "id": "8"},
+      "submsgs": []
+     }
+    ],
+ "phrase": ""
+}
+
+{"error_report":
+    [{"main":
+         {"location":
+             {"file": "//toplevel//",
+              "line": {"start": "1", "end": "1"},
               "character": {"start": "12", "end": "78"}
              },
           "content":
@@ -13,8 +30,8 @@
      },
      {"main":
          {"location":
-             {"file": "warn8.ml",
-              "line": {"start": "6", "end": "6"},
+             {"file": "//toplevel//",
+              "line": {"start": "1", "end": "1"},
               "character": {"start": "60", "end": "76"}
              },
           "content":
@@ -25,8 +42,8 @@
      },
      {"main":
          {"location":
-             {"file": "warn8.ml",
-              "line": {"start": "6", "end": "6"},
+             {"file": "//toplevel//",
+              "line": {"start": "1", "end": "1"},
               "character": {"start": "32", "end": "48"}
              },
           "content":
@@ -37,8 +54,8 @@
      },
      {"main":
          {"location":
-             {"file": "warn8.ml",
-              "line": {"start": "5", "end": "5"},
+             {"file": "//toplevel//",
+              "line": {"start": "6", "end": "6"},
               "character": {"start": "4", "end": "8"}
              },
           "content":
@@ -47,5 +64,6 @@
       "kind": {"classsification": "warning", "id": "8"},
       "submsgs": []
      }
-    ]
+    ],
+ "phrase": "val kas : string -> string = <fun>\n"
 }

@@ -3,4 +3,4 @@
    flags = "-json -dparsetree"
 *)
 
-let a = Int64.add 1;; (* needs review *)
+let a = Int64.add 1;;
