@@ -178,6 +178,52 @@ module Stdlib : sig
   external compare : 'a -> 'a -> int = "%compare"
 end
 
+module Json : sig
+  type t =
+    [
+      | `String of string
+      | `Assoc of (string * t) list
+      | `List of t list
+    ]
+  val print : Format.formatter -> t -> unit
+end
+
+module Log : sig
+  type log =
+    { 
+      toplevel_keys : Json.t Stdlib.String.Map.t ref;
+      error_key : Json.t list ref;
+      backend: Format.formatter
+    }
+
+  type t =
+    | Direct of Format.formatter
+      (** Direct mode: the log is printed directly on the Format's formatter *)
+
+    | Json of log
+      (** Json mode: we are building a json output, and
+       only print to the underlying formatted once the logging session end *)
+
+  val logf : string -> 
+    t -> ('a, Format.formatter, unit) format -> 'a 
+    (** [logf key log fmt] records the output of [fmt] in [log] as
+     a string at key [key]*)
+
+  val log_itemf : string -> 
+    t -> ('a, Format.formatter, unit) format -> 'a 
+    (** [log_itemf key log fmt] records the output of [fmt] in [log] as
+     a string at key [key]*)
+
+  val flush_log : t -> unit
+    (** flushes log*)
+
+  val is_direct : t -> bool
+
+  val escape : t -> Format.formatter
+    (** get the underlying formatter of the log *)
+
+end
+
 val find_in_path: string list -> string -> string
         (* Search a file in a list of directories. *)
 val find_in_path_rel: string list -> string -> string
