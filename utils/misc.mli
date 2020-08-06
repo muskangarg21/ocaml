@@ -181,6 +181,7 @@ end
 module Json : sig
   type t =
     [
+      | `Int of int
       | `String of string
       | `Assoc of (string * t) list
       | `List of t list

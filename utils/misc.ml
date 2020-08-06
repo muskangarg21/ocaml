@@ -255,6 +255,7 @@ module Json = struct
     Buffer.contents buf
   type t =
     [
+      | `Int of int
       | `String of string
       | `Assoc of (string * t) list
       | `List of t list
@@ -263,6 +264,8 @@ module Json = struct
   let rec print ppf =
     let comma ppf () = Format.fprintf ppf ",@ " in
     function
+    | `Int i ->
+      Format.fprintf ppf "%d" i
     | `String s ->
       Format.fprintf ppf "\"%s\"" (escape_string s)
     | `Assoc obj ->

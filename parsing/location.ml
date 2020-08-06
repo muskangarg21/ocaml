@@ -764,6 +764,63 @@ let batch_mode_printer : report_printer =
   { pp; pp_report_kind; pp_main_loc; pp_main_txt;
     pp_submsgs; pp_submsg; pp_submsg_loc; pp_submsg_txt }
 
+let json_mode_printer error_key () : report_printer =
+  let pp _ _ report =
+    let report_kind = function
+      | Report_error -> `Assoc["classsification",`String("error");]
+      | Report_warning w ->
+        `Assoc["classsification",`String("warning"); "id", `String(w);]
+      | Report_warning_as_error w ->
+          `Assoc ["classsification",
+            `String("error_from_warning"); "id", `String(w);]
+      | Report_alert w -> 
+        `Assoc ["classsification",`String("alert"); "id", `String(w);]
+      | Report_alert_as_error w ->
+          `Assoc ["classsification",
+            `String("error_from_alert"); "id", `String(w);]
+    in
+    let kind =
+      report_kind report.kind;
+    in
+    let content txt = `String(Format.asprintf "@[%t@]" txt) in
+    let loc_to_json loc =
+      let file =
+        if loc.loc_start.pos_fname = "" then !input_name
+        else loc.loc_start.pos_fname
+      in
+      let startchar = (loc.loc_start.pos_cnum - loc.loc_start.pos_bol) in
+      let endchar = (loc.loc_end.pos_cnum - loc.loc_end.pos_bol) in
+      let startline = loc.loc_start.pos_lnum in
+      let endline = loc.loc_end.pos_lnum in
+      let start_end s e =
+        `Assoc[
+          "start",`Int(s);
+          "end",`Int(e);
+        ];
+      in
+      `Assoc[
+        "file", `String(file);
+        "line", start_end startline endline ;
+        "character", start_end startchar endchar ;
+      ]
+    in
+    let msg_to_json {loc;txt} =
+      `Assoc[
+        "location",loc_to_json loc;
+        "content", content txt;
+      ];
+    in
+    let submsgs = List.map msg_to_json report.sub in
+    let main = msg_to_json report.main in
+    let err_frag = `Assoc[
+        "main", main;
+        "kind", kind;
+        "submsgs",`List(submsgs);
+      ] in 
+      error_key := err_frag :: !error_key
+  in
+  { batch_mode_printer with pp;}
+
 let terminfo_toplevel_printer (lb: lexbuf): report_printer =
   let pp self ppf err =
     setup_colors ();
@@ -798,6 +855,14 @@ let default_report_printer () : report_printer =
     batch_mode_printer
 
 let report_printer = ref default_report_printer
+
+let init_log ppf =
+  if !Clflags.json then 
+    let error_key =ref [] in 
+    report_printer := json_mode_printer error_key;
+    Misc.Log.Json { toplevel_keys = 
+      ref Misc.Stdlib.String.Map.empty ; error_key; backend=ppf } 
+  else Misc.Log.Direct ppf
 
 let print_report ppf report =
   let printer = !report_printer () in

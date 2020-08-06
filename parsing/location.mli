@@ -161,6 +161,8 @@ type report_printer = {
 
 (** {2 Report printers used in the compiler} *)
 
+val init_log : Format.formatter -> Misc.Log.t
+
 val batch_mode_printer: report_printer
 
 val terminfo_toplevel_printer: Lexing.lexbuf -> report_printer
